@@ -86,7 +86,7 @@ export const Header: React.FC = () => {
               <SignInButton>
                 <Button
                   size="sm"
-                  className="hidden md:inline-flex bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-full px-6 font-medium transition-transform hover:scale-105 active:scale-95"
+                  className="hidden md:inline-flex bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-full px-6 font-medium transition-transform hover:scale-105 active:scale-95 cursor-pointer"
                 >
                   Get Started
                 </Button>
@@ -135,7 +135,7 @@ export const Header: React.FC = () => {
             <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
               <SignedOut>
                 <SignInButton>
-                  <Button className="w-full bg-black text-white dark:bg-white dark:text-black rounded-full">
+                  <Button className="w-full bg-black text-white dark:bg-white dark:text-black rounded-full cursor-pointer">
                     Get Started
                   </Button>
                 </SignInButton>

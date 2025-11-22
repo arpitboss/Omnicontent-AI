@@ -23,6 +23,21 @@ export function BackgroundShader() {
 
         let animationFrameId: number;
         let time = 0;
+        let isDark = document.documentElement.classList.contains("dark");
+
+        // Optimize: Use MutationObserver instead of polling DOM every frame
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === "class") {
+                    isDark = document.documentElement.classList.contains("dark");
+                }
+            });
+        });
+
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+        });
 
         const resize = () => {
             canvas.width = window.innerWidth;
@@ -37,7 +52,6 @@ export function BackgroundShader() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            const isDark = document.documentElement.classList.contains("dark");
 
             // Deep Slate / Teal Theme
             if (isDark) {
@@ -54,7 +68,6 @@ export function BackgroundShader() {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Premium Gradient Mesh
-            // We'll create large, soft moving orbs of color that blend together
             const orbs = [
                 { x: Math.sin(time * 0.3) * 0.3 + 0.5, y: Math.cos(time * 0.2) * 0.3 + 0.5, r: 0.6, color: isDark ? "rgba(20, 184, 166, 0.08)" : "rgba(148, 163, 184, 0.15)" }, // Teal/Slate
                 { x: Math.cos(time * 0.4) * 0.3 + 0.5, y: Math.sin(time * 0.3) * 0.3 + 0.5, r: 0.5, color: isDark ? "rgba(99, 102, 241, 0.08)" : "rgba(203, 213, 225, 0.15)" }, // Indigo/Slate
@@ -68,22 +81,16 @@ export function BackgroundShader() {
 
                 const blobGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
                 if (isDark) {
-                    // Teal/Cyan glow
-                    blobGradient.addColorStop(0, `rgba(20, 184, 166, 0.03)`); // Teal 500
+                    blobGradient.addColorStop(0, `rgba(20, 184, 166, 0.03)`);
                     blobGradient.addColorStop(1, `rgba(20, 184, 166, 0)`);
                 } else {
-                    // Slate/Blue glow
-                    blobGradient.addColorStop(0, `rgba(51, 65, 85, 0.03)`); // Slate 700
+                    blobGradient.addColorStop(0, `rgba(51, 65, 85, 0.03)`);
                     blobGradient.addColorStop(1, `rgba(51, 65, 85, 0)`);
                 }
 
                 ctx.fillStyle = blobGradient;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             });
-
-            // Subtle Noise Overlay for Texture (Optional, adds "premium" feel)
-            // We'll skip per-pixel noise for performance, but add a very subtle grid or line overlay if needed.
-            // For now, just the smooth gradient is cleaner.
         };
 
         animationFrameId = requestAnimationFrame(function animate() {
@@ -94,6 +101,7 @@ export function BackgroundShader() {
         return () => {
             window.removeEventListener("resize", resize);
             cancelAnimationFrame(animationFrameId);
+            observer.disconnect();
         };
     }, []);
 
