@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { Copy, Check } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 
 interface CopyButtonProps {
     textToCopy: string;
@@ -20,11 +20,22 @@ export const CopyButton = ({ textToCopy }: CopyButtonProps) => {
     };
 
     return (
-        <Button variant="ghost" size="icon" onClick={handleCopy} className="h-8 w-8">
+        <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCopy}
+            className="h-8 px-3 font-mono text-xs uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-800 rounded-none"
+        >
             {hasCopied ? (
-                <Check className="h-4 w-4 text-green-500" />
+                <span className="flex items-center text-emerald-600 dark:text-emerald-400">
+                    <Check className="h-3 w-3 mr-2" />
+                    Copied
+                </span>
             ) : (
-                <Copy className="h-4 w-4" />
+                <span className="flex items-center text-neutral-500 hover:text-black dark:hover:text-white transition-colors">
+                    <Copy className="h-3 w-3 mr-2" />
+                    Copy
+                </span>
             )}
         </Button>
     );

@@ -1,53 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
-import useSWR from "swr";
+import { useEffect, useState } from "react";
+import ReactPlayer from "react-player";
 import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
-import ReactPlayer from "react-player";
+import useSWR from "swr";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CopyButton } from '@/components/copy-button';
+import { Footer } from "@/components/footer";
+import { Header } from "@/components/header";
+import { TranscriptDisplay } from "@/components/transcript-display";
+import { TypewriterText } from "@/components/typewriter-text";
+import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { ContentBox, GridBackground } from "@/components/ui/grid-background";
-import { TranscriptDisplay } from "@/components/transcript-display";
-import { TypewriterText } from "@/components/typewriter-text";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TypewriterProvider, useTypewriterManager } from "@/context/typewriter-context";
-import { CopyButton } from '@/components/copy-button';
-import { Header } from "@/components/header";
-import { Footer } from "@/components/footer";
 
 import {
+  Activity,
   Download,
-  Share2,
-  Clock,
   FileText,
-  Video,
-  TrendingUp,
   Languages,
+  Layers,
+  Zap
 } from "lucide-react";
 
 // ---------------- Interfaces ----------------
@@ -85,11 +76,11 @@ interface Content {
   userId: string;
   sourceUrl: string;
   status:
-    | "PENDING"
-    | "GENERATING_TEXT"
-    | "GENERATING_VIDEOS"
-    | "COMPLETE"
-    | "FAILED";
+  | "PENDING"
+  | "GENERATING_TEXT"
+  | "GENERATING_VIDEOS"
+  | "COMPLETE"
+  | "FAILED";
   generatedTitle?: string;
   summary?: string;
   generatedContent?: string;
@@ -119,11 +110,11 @@ const BlogImageRenderer = ({ src }: { src: string }) => {
   const imageUrl = `https://source.unsplash.com/random/800x450/?${encodeURIComponent(
     searchTerm
   )}`;
-  return <img src={imageUrl} alt={searchTerm} className="rounded-lg my-6" />;
+  return <img src={imageUrl} alt={searchTerm} className="rounded-none my-6 border border-dashed border-neutral-300 dark:border-neutral-700" />;
 };
 
 // ------------- ContentDisplayCard ---------------
-const ContentDisplayCard  = ({
+const ContentDisplayCard = ({
   content,
   onDownload,
   onTranslateOpen,
@@ -142,72 +133,71 @@ const ContentDisplayCard  = ({
   const currentTranslation = translationCache[content._id];
 
   useEffect(() => {
-        if (content && content.status !== 'PENDING' && content.status !== 'GENERATING_TEXT') {
-            const hasPlayed = sessionStorage.getItem(`typewriter_played_${content._id}`);
-            if (hasPlayed) return;
+    if (content && content.status !== 'PENDING' && content.status !== 'GENERATING_TEXT') {
+      const hasPlayed = sessionStorage.getItem(`typewriter_played_${content._id}`);
+      if (hasPlayed) return;
 
-            startAnimation(`${content._id}-summary`, content.summary || "");
-            startAnimation(`${content._id}-article`, content.generatedContent || "");
-            startAnimation(`${content._id}-linkedin`, content.linkedinPost || "");
-            content.twitterThread?.forEach((tweet, index) => {
-                startAnimation(`${content._id}-tweet-${index}`, tweet);
-            });
-            
-            sessionStorage.setItem(`typewriter_played_${content._id}`, 'true');
-        }
-    }, [content, startAnimation]);
+      startAnimation(`${content._id}-summary`, content.summary || "");
+      startAnimation(`${content._id}-article`, content.generatedContent || "");
+      startAnimation(`${content._id}-linkedin`, content.linkedinPost || "");
+      content.twitterThread?.forEach((tweet, index) => {
+        startAnimation(`${content._id}-tweet-${index}`, tweet);
+      });
+
+      sessionStorage.setItem(`typewriter_played_${content._id}`, 'true');
+    }
+  }, [content, startAnimation]);
 
   return (
-    <Card
-      key={content._id}
-      className="overflow-hidden shadow-lg glass-effect strategic-border"
-    >
+    <div className="relative overflow-hidden border border-dashed border-neutral-300 dark:border-neutral-700 bg-white dark:bg-black p-6 group">
+      {/* Corner Markers */}
+      <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-neutral-400 dark:border-neutral-500" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-neutral-400 dark:border-neutral-500" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-neutral-400 dark:border-neutral-500" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-neutral-400 dark:border-neutral-500" />
+
       {/* ---- Header ---- */}
-      <CardHeader className="p-6 bg-gray-100 dark:bg-gray-800 border-b flex-row justify-between items-start">
+      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-4">
         <div>
-          <CardTitle className="text-2xl gradient-text">
-            {content.generatedTitle || "Content is Processing..."}
-          </CardTitle>
-          <CardDescription className="pt-1">
-            Original Source:{" "}
-            <a
-              href={`http://localhost:8080/api/v1/content/${content._id}/${content.sourceUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-blue-500"
-            >
-              {content.sourceUrl}
-            </a>
-          </CardDescription>
+          <h3 className="text-2xl font-bold tracking-tight mb-1">
+            {content.generatedTitle || "Processing Data Stream..."}
+          </h3>
+          <p className="text-sm text-neutral-500 font-mono">
+            SOURCE: <a href={`http://localhost:8080/api/v1/content/${content._id}/${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline decoration-dashed">{content.sourceUrl}</a>
+          </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 mt-4 md:mt-0">
           {currentTranslation && (
             <Button
               variant="outline"
-              className="glass-effect"
+              className="rounded-none border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
               onClick={() => setShowTranslation(!showTranslation)}
             >
-              {showTranslation ? "Show Original" : "Show Translation"}
+              {showTranslation ? "ORIGINAL" : "TRANSLATION"}
             </Button>
           )}
           <Button
             variant={currentTranslation ? "ghost" : "outline"}
-            className="glass-effect"
+            className="rounded-none border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-900"
             onClick={() => onTranslateOpen(content._id)}
           >
             <Languages className="mr-2 h-4 w-4" />
-            {currentTranslation ? "Change Language" : "Translate"}
+            {currentTranslation ? "CHANGE LANG" : "TRANSLATE"}
           </Button>
         </div>
-      </CardHeader>
+      </div>
 
       {/* ---- Content ---- */}
-      <CardContent className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ---- Left Column ---- */}
         <div className="lg:col-span-1 space-y-6">
-          <h3 className="font-semibold text-lg gradient-text">Original Video</h3>
-          <div className="aspect-video rounded-lg overflow-hidden border">
+          <div className="flex items-center space-x-2 mb-2">
+            <Activity className="w-4 h-4 text-primary" />
+            <h4 className="font-bold text-sm uppercase tracking-widest">Source Feed</h4>
+          </div>
+          <div className="aspect-video overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-black relative">
+            <div className="absolute inset-0 bg-grid-white/[0.05] pointer-events-none" />
             <ReactPlayer
               src={`http://localhost:8080/api/v1/content/${content._id}/${content.sourceUrl}`}
               width="100%"
@@ -216,34 +206,36 @@ const ContentDisplayCard  = ({
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg gradient-text">Summary</h3>
+          <div className="flex items-center justify-between border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-2">
+            <h4 className="font-bold text-sm uppercase tracking-widest">Executive Summary</h4>
             <CopyButton textToCopy={content.summary || ''} />
           </div>
-          <TypewriterText
-            id={`${content._id}-summary`}
-            text={
-              showTranslation && currentTranslation?.summary
-                ? currentTranslation.summary
-                : content.summary || ""
-            }
-          />
+          <div className="font-mono text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <TypewriterText
+              id={`${content._id}-summary`}
+              text={
+                showTranslation && currentTranslation?.summary
+                  ? currentTranslation.summary
+                  : content.summary || ""
+              }
+            />
+          </div>
         </div>
 
         {/* ---- Right Column ---- */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="article" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="article">Article</TabsTrigger>
-              <TabsTrigger value="social">Social Posts</TabsTrigger>
-              <TabsTrigger value="clips">Clips</TabsTrigger>
-              <TabsTrigger value="transcript">Transcript</TabsTrigger>
+            <TabsList className="w-full grid grid-cols-4 rounded-none border border-neutral-200 dark:border-neutral-800 bg-transparent p-0">
+              <TabsTrigger value="article" className="rounded-none data-[state=active]:bg-neutral-100 dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-none border-r border-neutral-200 dark:border-neutral-800 last:border-r-0 h-10 font-mono text-xs uppercase">Article</TabsTrigger>
+              <TabsTrigger value="social" className="rounded-none data-[state=active]:bg-neutral-100 dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-none border-r border-neutral-200 dark:border-neutral-800 last:border-r-0 h-10 font-mono text-xs uppercase">Social</TabsTrigger>
+              <TabsTrigger value="clips" className="rounded-none data-[state=active]:bg-neutral-100 dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-none border-r border-neutral-200 dark:border-neutral-800 last:border-r-0 h-10 font-mono text-xs uppercase">Clips</TabsTrigger>
+              <TabsTrigger value="transcript" className="rounded-none data-[state=active]:bg-neutral-100 dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-none h-10 font-mono text-xs uppercase">Transcript</TabsTrigger>
             </TabsList>
 
             {/* --- Article Tab --- */}
             <TabsContent
               value="article"
-              className="mt-4 prose prose-invert max-w-none p-4 border rounded-md"
+              className="mt-6 prose prose-neutral dark:prose-invert max-w-none p-6 border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50"
             >
               <div className="flex justify-end -mb-8 relative z-10">
                 <CopyButton textToCopy={content.generatedContent || ''} />
@@ -259,7 +251,7 @@ const ContentDisplayCard  = ({
                     if (text.startsWith("[Image:")) {
                       return <BlogImageRenderer src={text} />;
                     }
-                    return <p {...props} />;
+                    return <p {...props} className="font-serif leading-loose" />;
                   },
                 }}
                 text={
@@ -271,16 +263,16 @@ const ContentDisplayCard  = ({
             </TabsContent>
 
             {/* --- Social Tab --- */}
-            <TabsContent value="social" className="mt-4">
+            <TabsContent value="social" className="mt-6">
               <Tabs defaultValue="linkedin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
-                  <TabsTrigger value="twitter">Twitter</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 rounded-none border border-neutral-200 dark:border-neutral-800 bg-transparent p-0 mb-4">
+                  <TabsTrigger value="linkedin" className="rounded-none data-[state=active]:bg-neutral-100 dark:data-[state=active]:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800">LinkedIn</TabsTrigger>
+                  <TabsTrigger value="twitter" className="rounded-none data-[state=active]:bg-neutral-100 dark:data-[state=active]:bg-neutral-900">Twitter / X</TabsTrigger>
                 </TabsList>
 
                 <TabsContent
                   value="linkedin"
-                  className="mt-4 p-4 border rounded-md whitespace-pre-wrap text-sm"
+                  className="p-6 border border-dashed border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black whitespace-pre-wrap text-sm font-sans"
                 >
                   <div className="flex justify-end -mb-8 relative z-10">
                     <CopyButton textToCopy={content.linkedinPost || ''} />
@@ -295,24 +287,24 @@ const ContentDisplayCard  = ({
                   />
                 </TabsContent>
 
-                <TabsContent value="twitter" className="mt-4 space-y-4">
+                <TabsContent value="twitter" className="space-y-4">
                   <div className="flex justify-end -mb-4 relative z-10">
                     <CopyButton textToCopy={content.twitterThread?.join('\n\n') || ''} />
                   </div>
                   {content.twitterThread?.map((tweet: string, index: number) => (
                     <div
                       key={index}
-                      className="flex items-start space-x-3 p-3 border rounded-md"
+                      className="flex items-start space-x-4 p-4 border border-dashed border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black"
                     >
-                      <Avatar>
-                        <AvatarFallback>{index + 1}</AvatarFallback>
-                      </Avatar>
-                      <div className="text-sm">
+                      <div className="w-8 h-8 rounded-none bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs">
+                        {index + 1}
+                      </div>
+                      <div className="text-sm flex-1">
                         <TypewriterText
                           id={`${content._id}-tweet-${index}`}
                           text={
                             showTranslation &&
-                            currentTranslation?.twitter?.[index]
+                              currentTranslation?.twitter?.[index]
                               ? currentTranslation.twitter[index]
                               : tweet
                           }
@@ -327,7 +319,7 @@ const ContentDisplayCard  = ({
             {/* --- Clips Tab --- */}
             <TabsContent
               value="clips"
-              className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+              className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
             >
               {content.clips?.map((clip) => {
                 const reformats = content.reformattedClips || [];
@@ -351,16 +343,18 @@ const ContentDisplayCard  = ({
                   return (
                     <div
                       key={clip._id}
-                      className="border rounded-lg overflow-hidden group transition-all hover:shadow-lg hover:scale-105"
+                      className="border border-dashed border-neutral-200 dark:border-neutral-800 group hover:border-solid hover:border-primary transition-all duration-300"
                     >
-                      <video
-                        controls
-                        muted
-                        src={clip.s3Url}
-                        className="w-full aspect-[9/16] bg-black"
-                      />
-                      <div className="p-3 bg-gray-100 dark:bg-gray-800">
-                        <p className="font-semibold text-sm truncate group-hover:text-blue-600">
+                      <div className="relative aspect-[9/16] bg-black overflow-hidden">
+                        <video
+                          controls
+                          muted
+                          src={clip.s3Url}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="p-4 bg-neutral-50 dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-800">
+                        <p className="font-bold text-xs uppercase tracking-wider truncate mb-3">
                           {clip.title}
                         </p>
                         <DropdownMenu>
@@ -368,13 +362,13 @@ const ContentDisplayCard  = ({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full mt-2 glass-effect"
+                              className="w-full rounded-none border-neutral-300 dark:border-neutral-700 font-mono text-xs"
                             >
-                              <Download className="mr-2 h-4 w-4" />
-                              Download
+                              <Download className="mr-2 h-3 w-3" />
+                              DOWNLOAD ASSET
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent>
+                          <DropdownMenuContent className="rounded-none border-neutral-200 dark:border-neutral-800">
                             {["9:16", "1:1", "4:5"].map((aspect) => {
                               const downloadUrl = getDownloadUrl(aspect);
                               const isProcessing = isJobRunning(aspect);
@@ -382,6 +376,7 @@ const ContentDisplayCard  = ({
                                 <DropdownMenuItem
                                   key={aspect}
                                   disabled={isProcessing}
+                                  className="rounded-none font-mono text-xs focus:bg-neutral-100 dark:focus:bg-neutral-800"
                                   onClick={() => {
                                     if (downloadUrl) {
                                       window.open(downloadUrl, "_blank");
@@ -391,8 +386,8 @@ const ContentDisplayCard  = ({
                                   }}
                                 >
                                   {isProcessing
-                                    ? `Processing ${aspect}...`
-                                    : `Download ${aspect}`}
+                                    ? `PROCESSING ${aspect}...`
+                                    : `DOWNLOAD ${aspect}`}
                                   {downloadUrl && !isProcessing && (
                                     <span className="ml-2 text-green-500">✓</span>
                                   )}
@@ -410,10 +405,10 @@ const ContentDisplayCard  = ({
                   return (
                     <div
                       key={clip._id}
-                      className="border rounded-lg aspect-[9/16] flex flex-col items-center justify-center bg-red-100 text-red-600"
+                      className="border border-dashed border-red-200 dark:border-red-900 aspect-[9/16] flex flex-col items-center justify-center bg-red-50/50 dark:bg-red-900/10 text-red-600"
                     >
-                      <p className="font-semibold">Generation Failed</p>
-                      <p className="text-xs mt-1">Please try again later.</p>
+                      <p className="font-bold text-xs uppercase">Generation Failed</p>
+                      <p className="text-[10px] mt-1 font-mono">ERROR_CODE_500</p>
                     </div>
                   );
                 }
@@ -421,11 +416,11 @@ const ContentDisplayCard  = ({
                 return (
                   <div
                     key={clip._id}
-                    className="border rounded-lg aspect-[9/16] flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-800"
+                    className="border border-dashed border-neutral-200 dark:border-neutral-800 aspect-[9/16] flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900"
                   >
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-                      Generating preview...
+                    <div className="animate-spin rounded-none h-6 w-6 border-2 border-neutral-300 border-t-black dark:border-neutral-700 dark:border-t-white"></div>
+                    <p className="text-xs text-neutral-500 mt-4 font-mono uppercase tracking-widest">
+                      Processing...
                     </p>
                   </div>
                 );
@@ -433,7 +428,7 @@ const ContentDisplayCard  = ({
             </TabsContent>
 
             {/* --- Transcript Tab --- */}
-            <TabsContent value="transcript" className="mt-4">
+            <TabsContent value="transcript" className="mt-6">
               <TranscriptDisplay
                 transcript={content.transcript}
                 translatedText={showTranslation ? currentTranslation?.transcript : undefined}
@@ -443,8 +438,8 @@ const ContentDisplayCard  = ({
             </TabsContent>
           </Tabs>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
@@ -611,121 +606,109 @@ export default function DashboardPage() {
   const totalPosts = contents?.reduce((sum, item) => sum + (item.twitterThread?.length || 0), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen bg-transparent">
       <Header />
-      <GridBackground pattern="subtle-dots" className="relative">
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="mb-12">
-            <h1 className="text-4xl font-bold gradient-text mb-4">Content Dashboard</h1>
-            <p className="text-xl text-gray-500 dark:text-gray-400">
-              Manage and track your content atomization projects
-            </p>
+      <div className="relative pt-32 pb-24">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-16 flex flex-col md:flex-row justify-between items-end border-b border-dashed border-neutral-300 dark:border-neutral-700 pb-8">
+            <div>
+              <h1 className="text-5xl font-bold tracking-tighter mb-2">Mission Control</h1>
+              <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest">
+                System Status: Online | {contents?.length || 0} Active Projects
+              </p>
+            </div>
+            <Button className="rounded-none bg-black text-white dark:bg-white dark:text-black font-bold uppercase tracking-wider px-8 h-12 hover:opacity-90 transition-all relative overflow-hidden group cursor-pointer">
+              <span className="relative z-10 flex items-center">
+                <Zap className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" /> Initialize New Project
+              </span>
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+            </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              {
-                label: 'Completed Projects',
-                value: completedProjects,
-                icon: FileText,
-                color: 'from-green-500/20 to-emerald-500/20',
-                iconColor: 'text-green-500',
-              },
-              {
-                label: 'Processing',
-                value: processingProjects,
-                icon: Clock,
-                color: 'from-yellow-500/20 to-orange-500/20',
-                iconColor: 'text-yellow-500',
-              },
-              {
-                label: 'Total Clips',
-                value: totalClips,
-                icon: Video,
-                color: 'from-blue-500/20 to-cyan-500/20',
-                iconColor: 'text-blue-500',
-              },
-              {
-                label: 'Social Posts',
-                value: totalPosts,
-                icon: TrendingUp,
-                color: 'from-purple-500/20 to-pink-500/20',
-                iconColor: 'text-purple-500',
-              },
-            ].map(({ label, value, icon: Icon, color, iconColor }) => (
-              <ContentBox key={label} variant="premium" className={`glass-effect bg-gradient-to-br ${color}`}>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{label}</p>
-                    <p className="text-3xl font-bold gradient-text">{value}</p>
-                  </div>
-                  <div className={`w-12 h-12 rounded-xl bg-gray-100/20 dark:bg-gray-800/20 flex items-center justify-center ${iconColor}`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
+          <BentoGrid className="mb-16">
+            <BentoGridItem
+              title="Completed Projects"
+              description="Total successfully processed content streams."
+              header={<div className="text-5xl font-bold font-mono tracking-tighter">{completedProjects}</div>}
+              icon={<FileText className="w-6 h-6 text-neutral-500" />}
+              className="md:col-span-1"
+            />
+            <BentoGridItem
+              title="Processing Queue"
+              description="Active jobs currently in the neural pipeline."
+              header={<div className="text-5xl font-bold font-mono tracking-tighter text-amber-500">{processingProjects}</div>}
+              icon={<Activity className="w-6 h-6 text-amber-500" />}
+              className="md:col-span-1"
+            />
+            <BentoGridItem
+              title="Generated Assets"
+              description="Total clips and social posts created."
+              header={<div className="text-5xl font-bold font-mono tracking-tighter">{totalClips + totalPosts}</div>}
+              icon={<Layers className="w-6 h-6 text-neutral-500" />}
+              className="md:col-span-1"
+            />
+          </BentoGrid>
+
+          <div className="space-y-12">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold tracking-tight">Recent Operations</h2>
+            </div>
+
+            {isLoading && (
+              <div className="border border-dashed border-neutral-300 p-12 text-center">
+                <div className="animate-spin w-8 h-8 border-2 border-black border-t-transparent mx-auto mb-4"></div>
+                <p className="font-mono text-sm uppercase">Fetching Data Stream...</p>
+              </div>
+            )}
+
+            {error && <p className="text-center text-red-500 font-mono">ERROR: CONNECTION_REFUSED</p>}
+
+            {contents?.length === 0 && (
+              <div className="text-center py-24 border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
+                <div className="w-16 h-16 mx-auto bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 flex items-center justify-center mb-6">
+                  <FileText className="w-8 h-8 text-neutral-400" />
                 </div>
-              </ContentBox>
+                <div className="space-y-2 mb-8">
+                  <h3 className="text-xl font-bold">No Data Found</h3>
+                  <p className="text-neutral-500 font-mono text-sm">
+                    Initialize a new project to begin data processing.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {contents?.map((content) => (
+              <TypewriterProvider key={content._id}>
+                <div className="flex justify-end mb-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-none font-mono text-xs hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                    onClick={() => handleExportAll(content._id)}
+                  >
+                    <Download className="mr-2 h-3 w-3" /> EXPORT_ARCHIVE
+                  </Button>
+                </div>
+                <ContentDisplayCard
+                  content={content}
+                  onDownload={handleDownload}
+                  onTranslateOpen={handleOpenTranslateDialog}
+                  translationCache={translationCache}
+                  showTranslation={showTranslation}
+                  setShowTranslation={setShowTranslation}
+                />
+              </TypewriterProvider>
             ))}
           </div>
-
-          <ContentBox variant="premium" className="glass-effect strategic-border">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold gradient-text">Recent Projects</h2>
-              </div>
-
-              <div className="space-y-8">
-                {isLoading && <p className="text-center text-gray-500 dark:text-gray-400">Loading your generated content...</p>}
-                {error && <p className="text-center text-red-500">Failed to load content.</p>}
-                {contents?.length === 0 && (
-                  <div className="text-center py-16 space-y-4">
-                    <div className="w-16 h-16 mx-auto glass-effect rounded-2xl flex items-center justify-center">
-                      <FileText className="w-8 h-8 text-gray-500 dark:text-gray-400" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold gradient-text">No projects yet</h3>
-                      <p className="text-gray-500 dark:text-gray-400">
-                        Start by creating your first content atomization project
-                      </p>
-                    </div>
-                    <Button className="bg-gradient-to-r from-gray-800 to-gray-600 text-white">
-                      Create Project
-                    </Button>
-                  </div>
-                )}
-
-                {contents?.map((content) => (
-                            <TypewriterProvider key={content._id}>
-                                <div className="flex justify-end mb-4">
-                                  <Button
-                                    variant="outline"
-                                    className="glass-effect"
-                                    onClick={() => handleExportAll(content._id)}
-                                  >
-                                    <Download className="mr-2 h-4 w-4" /> Export All
-                                  </Button>
-                                </div>
-                                <ContentDisplayCard
-                                    content={content}
-                                    onDownload={handleDownload}
-                                    onTranslateOpen={handleOpenTranslateDialog}
-                                    translationCache={translationCache}
-                                    showTranslation={showTranslation}
-                                    setShowTranslation={setShowTranslation}
-                                />
-                            </TypewriterProvider>
-                        ))}
-              </div>
-            </div>
-          </ContentBox>
         </div>
-      </GridBackground>
+      </div>
 
       <Dialog open={isTranslateDialogOpen} onOpenChange={setIsTranslateDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] glass-effect">
+        <DialogContent className="sm:max-w-[425px] rounded-none border-black dark:border-white bg-white dark:bg-black">
           <DialogHeader>
-            <DialogTitle className="gradient-text">Translate Content</DialogTitle>
-            <DialogDescription className="text-gray-500 dark:text-gray-400">
-              Enter the language you want to translate the content into. The summary, article, transcript, and social posts will all be translated.
+            <DialogTitle className="font-bold uppercase tracking-widest">Translate Content</DialogTitle>
+            <DialogDescription className="font-mono text-xs">
+              Select target language protocol for neural translation.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -735,12 +718,12 @@ export default function DashboardPage() {
               value={targetLanguage}
               onChange={(e) => setTargetLanguage(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleTranslate()}
-              className="glass-effect"
+              className="rounded-none border-neutral-300 focus:ring-0 focus:border-black"
             />
           </div>
           <DialogFooter>
-            <Button onClick={handleTranslate} disabled={isTranslating || !targetLanguage} className="bg-gradient-to-r from-gray-800 to-gray-600 text-white">
-              {isTranslating ? 'Translating...' : 'Translate'}
+            <Button onClick={handleTranslate} disabled={isTranslating || !targetLanguage} className="rounded-none bg-black text-white hover:opacity-90 w-full">
+              {isTranslating ? 'PROCESSING...' : 'EXECUTE TRANSLATION'}
             </Button>
           </DialogFooter>
         </DialogContent>

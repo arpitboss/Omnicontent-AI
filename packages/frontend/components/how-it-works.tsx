@@ -1,124 +1,105 @@
 "use client";
 
-import { Upload, Brain, Rocket } from "lucide-react";
-import { GlassCard } from "@/components/ui/glass-card";
 import { motion } from "framer-motion";
-
-const steps = [
-  {
-    icon: Upload,
-    title: "Upload Your Content",
-    description: "Simply drag and drop your audio or video files. We support MP3, MP4, WAV, and many other formats.",
-    gradient: "from-chart-1 to-chart-2",
-    color: "chart-1"
-  },
-  {
-    icon: Brain,
-    title: "AI Processing", 
-    description: "Our advanced AI analyzes your content, creates accurate transcriptions, and prepares multiple format options.",
-    gradient: "from-chart-2 to-chart-3",
-    color: "chart-2"
-  },
-  {
-    icon: Rocket,
-    title: "Publish Everywhere",
-    description: "Get your content in multiple formats: transcripts, translations, blog posts, social media content, and more.",
-    gradient: "from-chart-3 to-chart-4", 
-    color: "chart-3"
-  }
-];
-
-// Tailwind-safe color mapping
-const colorStyles: Record<string, string> = {
-  "chart-1": "text-chart-1 bg-chart-1",
-  "chart-2": "text-chart-2 bg-chart-2",
-  "chart-3": "text-chart-3 bg-chart-3",
-};
+import { ArrowRight, Check, Workflow } from "lucide-react";
 
 export function HowItWorks() {
+  const steps = [
+    {
+      id: "01",
+      title: "Upload & Analyze",
+      description: "Drag and drop your audio or video files. Our AI instantly analyzes speaker patterns, context, and sentiment.",
+      status: "completed"
+    },
+    {
+      id: "02",
+      title: "Contextual Processing",
+      description: "Select your target formats. The engine adapts tone and structure for LinkedIn, Twitter, or Blog posts.",
+      status: "active"
+    },
+    {
+      id: "03",
+      title: "Review & Export",
+      description: "Fine-tune the output with precision controls. Export to your CMS or schedule directly.",
+      status: "pending"
+    }
+  ];
+
   return (
-    <section id="how-it-works" className="py-24 relative">
+    <section id="how-it-works" className="py-24 relative overflow-hidden bg-white dark:bg-black">
       <div className="max-w-7xl mx-auto px-6">
-        
-        {/* Header */}
-        <div className="text-center space-y-4 mb-16">
-          <h2 className="text-5xl font-bold gradient-text text-shadow-lg">
-            How It Works
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Three simple steps to transform your content with AI
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-20 gap-8">
+          <div>
+            <div className="inline-flex items-center space-x-2 mb-4 border border-neutral-200 dark:border-neutral-800 px-3 py-1 bg-white dark:bg-black">
+              <Workflow className="w-4 h-4" />
+              <span className="font-bold uppercase tracking-widest text-xs">Workflow Automation</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tighter max-w-xl">
+              Your Daily <br />
+              <span className="text-neutral-400 dark:text-neutral-600">Command Center.</span>
+            </h2>
+          </div>
+          <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-md">
+            Streamline your content operations with a structured, intelligent pipeline designed for scale.
           </p>
         </div>
 
-        {/* Steps */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
+          {/* Connecting Line (Desktop) */}
+          <div className="hidden lg:block absolute top-12 left-0 w-full h-px bg-neutral-200 dark:bg-neutral-800 -z-10">
+            <motion.div
+              initial={{ width: "0%" }}
+              whileInView={{ width: "100%" }}
+              viewport={{ once: true }}
+              transition={{ duration: 1.5, ease: "easeInOut" }}
+              className="h-full bg-black dark:bg-white"
+            />
+          </div>
+
           {steps.map((step, index) => (
             <motion.div
-              key={step.title}
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
+              key={step.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ delay: index * 0.2, duration: 0.5 }}
-              className="text-center space-y-6"
+              className="group"
             >
-              {/* Icon with Glow + Number */}
-              <div className="relative mx-auto w-32 h-32" style={{ perspective: "1000px" }}>
-                <div className={`absolute inset-0 bg-gradient-to-br ${step.gradient} rounded-3xl blur-lg opacity-30`} />
-                
-                <GlassCard className="relative w-full h-full rounded-3xl flex items-center justify-center hover:-translate-y-2 transition-transform duration-500 shadow-xl">
-                  <step.icon 
-                    className={`w-12 h-12 ${colorStyles[step.color].split(" ")[0]}`} 
-                    aria-label={step.title} 
-                  />
-                </GlassCard>
+              <div className="bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 p-8 h-full hover:border-black dark:hover:border-white transition-colors duration-300 relative">
+                <div className="flex items-center justify-between mb-8">
+                  <span className="text-5xl font-bold text-neutral-100 dark:text-neutral-900 group-hover:text-neutral-200 dark:group-hover:text-neutral-800 transition-colors">{step.id}</span>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    whileInView={{ scale: 1 }}
+                    transition={{ delay: index * 0.5 + 0.5, type: "spring" }}
+                  >
+                    {step.status === 'completed' ? (
+                      <div className="w-6 h-6 bg-black dark:bg-white flex items-center justify-center">
+                        <Check className="w-4 h-4 text-white dark:text-black" />
+                      </div>
+                    ) : step.status === 'active' ? (
+                      <div className="w-6 h-6 border-2 border-black dark:border-white flex items-center justify-center">
+                        <div className="w-2 h-2 bg-black dark:bg-white animate-pulse" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 border border-neutral-200 dark:border-neutral-800" />
+                    )}
+                  </motion.div>
+                </div>
 
-                <div className={`absolute -top-3 -right-3 w-8 h-8 ${colorStyles[step.color].split(" ")[1]} text-white rounded-full flex items-center justify-center font-bold text-sm shadow-lg`}>
-                  {index + 1}
+                <h3 className="text-xl font-bold mb-4 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 transition-colors">{step.title}</h3>
+                <p className="text-neutral-500 leading-relaxed mb-8">
+                  {step.description}
+                </p>
+
+                <div className="flex items-center text-sm font-bold uppercase tracking-widest group/btn cursor-pointer">
+                  <span className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">View Details</span>
+                  <ArrowRight className="w-4 h-4 ml-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 delay-75" />
                 </div>
               </div>
-
-              {/* Title + Description */}
-              <h3 className="text-2xl font-semibold text-foreground">
-                {step.title}
-              </h3>
-              <p className="text-muted-foreground leading-relaxed max-w-sm mx-auto">
-                {step.description}
-              </p>
             </motion.div>
           ))}
         </div>
-
-        {/* Process Flow */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mt-20"
-        >
-          <GlassCard variant="premium" className="p-12 space-y-8">
-            <div className="text-center">
-              <h4 className="text-2xl font-semibold text-foreground mb-4">
-                From Upload to Publishing in Minutes
-              </h4>
-              <p className="text-muted-foreground">
-                Watch your content transform in real-time
-              </p>
-            </div>
-            
-            <div className="relative">
-              <div className="aspect-video bg-gradient-to-br from-muted/20 to-muted/40 rounded-2xl flex items-center justify-center border-2 border-dashed border-muted-foreground/20">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl flex items-center justify-center mx-auto animate-pulse">
-                    <Brain className="w-8 h-8 text-white" />
-                  </div>
-                  <p className="text-muted-foreground">
-                    Interactive Demo Coming Soon
-                  </p>
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
       </div>
     </section>
   );

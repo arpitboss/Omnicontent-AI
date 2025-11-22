@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 interface FileUploadProps {
   onFileChange: (file: File | null) => void;
   acceptedTypes?: string[];
-  maxSize?: number; // in MB
+  maxSize?: number;
   className?: string;
 }
 
@@ -54,7 +54,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const handleFileUpload = async (file: File) => {
     // Validate file size
     if (file.size > maxSize * 1024 * 1024) {
-      setUploadError(`File size must be less than ${maxSize}MB`);
+      setUploadError(`File size must be less than ${ maxSize } MB`);
       return;
     }
 
@@ -67,7 +67,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     });
 
     if (!isValidType) {
-      setUploadError(`File type not supported. Please upload: ${acceptedTypes.join(', ')}`);
+      setUploadError(`File type not supported.Please upload: ${ acceptedTypes.join(', ') } `);
       return;
     }
 
@@ -115,46 +115,48 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     
     return (
       <div className={cn("space-y-4", className)}>
-        <div className="glass-effect p-6 rounded-2xl border border-border/50 backdrop-blur-xl">
-          <div className="flex items-start justify-between">
+        <div className="bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 p-6 relative overflow-hidden group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-black dark:bg-white" />
+          
+          <div className="flex items-start justify-between relative z-10">
             <div className="flex items-center space-x-4 flex-1 min-w-0">
               <div className="flex-shrink-0">
-                <div className="w-14 h-14 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center shadow-lg">
-                  <FileIcon className="w-7 h-7 text-white" />
+                <div className="w-12 h-12 bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center border border-neutral-200 dark:border-neutral-800">
+                  <FileIcon className="w-6 h-6 text-black dark:text-white" />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2 mb-1">
-                  <h4 className="text-lg font-semibold text-foreground truncate">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100 truncate">
                     {uploadedFile.name}
                   </h4>
                   {uploadProgress === 100 && (
-                    <div className="flex-shrink-0 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" />
+                    <div className="flex-shrink-0 w-4 h-4 bg-black dark:bg-white rounded-full flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-white dark:text-black" />
                     </div>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">
+                <p className="text-xs font-mono text-neutral-500 mb-3">
                   {formatFileSize(uploadedFile.size)} • {uploadedFile.type}
                 </p>
                 
                 {isUploading && (
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Uploading...</span>
-                      <span className="font-medium text-primary">{uploadProgress}%</span>
+                    <div className="flex justify-between items-center text-[10px] font-mono uppercase">
+                      <span className="text-neutral-500">Uploading...</span>
+                      <span className="font-bold">{uploadProgress}%</span>
                     </div>
                     <Progress 
                       value={uploadProgress} 
-                      className="w-full h-2" 
+                      className="w-full h-1 rounded-none bg-neutral-100 dark:bg-neutral-900" 
                     />
                   </div>
                 )}
                 
                 {uploadProgress === 100 && !isUploading && (
-                  <div className="flex items-center space-x-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    <Check className="w-4 h-4" />
-                    <span className="font-medium">Ready for processing</span>
+                  <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
+                    <Check className="w-3 h-3" />
+                    <span>Ready for processing</span>
                   </div>
                 )}
               </div>
@@ -164,8 +166,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               variant="ghost"
               size="icon"
               onClick={removeFile}
-              className="flex-shrink-0 hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
-              data-testid="remove-file-button"
+              className="flex-shrink-0 hover:bg-neutral-100 dark:hover:bg-neutral-900 rounded-none transition-colors"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -173,7 +174,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         </div>
 
         {uploadError && (
-          <div className="flex items-center space-x-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+          <div className="flex items-center space-x-2 p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900 text-red-600 text-xs font-mono">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{uploadError}</span>
           </div>
@@ -186,18 +187,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     <div className={cn("space-y-4", className)}>
       <div
         className={cn(
-          "relative group cursor-pointer transition-all duration-300 rounded-2xl border-2 border-dashed p-8",
-          "glass-effect backdrop-blur-xl hover:backdrop-blur-2xl",
+          "relative group cursor-pointer transition-all duration-300 border border-dashed p-12",
           dragActive 
-            ? "border-primary bg-primary/5 scale-[1.02]" 
-            : "border-border/50 hover:border-primary/50 hover:bg-accent/20"
+            ? "border-black dark:border-white bg-neutral-50 dark:bg-neutral-900" 
+            : "border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900"
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        data-testid="file-upload-dropzone"
       >
         <input
           ref={fileInputRef}
@@ -205,30 +204,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           accept={acceptedTypes.join(',')}
           onChange={handleChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          data-testid="file-upload-input"
         />
         
         <div className="text-center space-y-6">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 subtle-glow">
-            <Upload className="w-10 h-10 text-primary animate-float" />
+          <div className="mx-auto w-16 h-16 bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-neutral-200 dark:border-neutral-800">
+            <Upload className="w-8 h-8 text-neutral-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
           </div>
           
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-foreground group-hover:gradient-text transition-all duration-300">
-              Drop your files here
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold uppercase tracking-widest text-neutral-900 dark:text-neutral-100">
+              Drop files here
             </h3>
-            <p className="text-muted-foreground">
-              or <span className="text-primary font-medium hover:underline">browse</span> to choose files
+            <p className="text-neutral-500 text-sm font-mono">
+              or <span className="text-black dark:text-white font-bold underline decoration-dashed underline-offset-4">browse</span> to choose
             </p>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center space-x-2 px-3 py-1 bg-muted/30 rounded-full">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+          <div className="flex flex-wrap justify-center gap-4 text-[10px] font-mono uppercase text-neutral-400">
+            <div className="flex items-center space-x-2 px-2 py-1 border border-neutral-200 dark:border-neutral-800">
               <span>Supports: {acceptedTypes.join(', ')}</span>
             </div>
-            <div className="flex items-center space-x-2 px-3 py-1 bg-muted/30 rounded-full">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+            <div className="flex items-center space-x-2 px-2 py-1 border border-neutral-200 dark:border-neutral-800">
               <span>Max size: {maxSize}MB</span>
             </div>
           </div>
@@ -236,7 +232,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       </div>
 
       {uploadError && (
-        <div className="flex items-center space-x-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm animate-fade-in">
+        <div className="flex items-center space-x-2 p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900 text-red-600 text-xs font-mono">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{uploadError}</span>
         </div>

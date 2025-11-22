@@ -1,195 +1,116 @@
 "use client";
 
-import { Check, Star, Crown, Zap } from "lucide-react";
-import { AnimatedButton } from "@/components/ui/animated-button";
-import { GlassCard } from "@/components/ui/glass-card";
-import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
-
-const plans = [
-  {
-    name: "Free",
-    description: "Perfect for trying out the platform",
-    price: "$0",
-    period: "/month",
-    features: [
-      "5 uploads per month",
-      "Basic transcription",
-      "10 language support", 
-      "Standard export formats"
-    ],
-    buttonText: "Get Started Free",
-    buttonVariant: "outline" as const,
-    icon: Zap,
-    popular: false
-  },
-  {
-    name: "Pro", 
-    description: "For serious content creators",
-    price: "$29",
-    period: "/month", 
-    features: [
-      "Unlimited uploads",
-      "Advanced AI transcription",
-      "40+ language support",
-      "All export formats",
-      "Real-time processing",
-      "Priority support"
-    ],
-    buttonText: "Start Pro Trial",
-    buttonVariant: "default" as const,
-    icon: Star,
-    popular: true
-  },
-  {
-    name: "Enterprise",
-    description: "For teams and businesses", 
-    price: "$99",
-    period: "/month",
-    features: [
-      "Everything in Pro",
-      "Team collaboration", 
-      "Custom integrations",
-      "Advanced analytics",
-      "Dedicated support",
-      "SLA guarantee"
-    ],
-    buttonText: "Contact Sales",
-    buttonVariant: "outline" as const,
-    icon: Crown,
-    popular: false
-  }
-];
+import { Button } from "@/components/ui/button";
+import { Check } from "lucide-react";
 
 export function PricingSection() {
+  const plans = [
+    {
+      name: "Starter",
+      price: "$0",
+      description: "Perfect for individuals exploring neural content generation.",
+      features: [
+        "500 AI-generated clips / mo",
+        "Basic neural transcription",
+        "720p export quality",
+        "Community support"
+      ],
+      cta: "Start Building",
+      popular: false
+    },
+    {
+      name: "Pro",
+      price: "$49",
+      description: "For creators and teams requiring high-velocity output.",
+      features: [
+        "Unlimited AI clips",
+        "99.8% accuracy transcription",
+        "4K export quality",
+        "Custom brand templates",
+        "Priority neural processing"
+      ],
+      cta: "Upgrade to Pro",
+      popular: true
+    },
+    {
+      name: "Enterprise",
+      price: "Custom",
+      description: "Scalable infrastructure for media organizations.",
+      features: [
+        "Dedicated GPU clusters",
+        "Custom model fine-tuning",
+        "SSO & RBAC",
+        "SLA guarantees",
+        "24/7 dedicated support"
+      ],
+      cta: "Contact Sales",
+      popular: false
+    }
+  ];
+
   return (
-    <section id="pricing" className="py-24 relative">
+    <section className="py-32 relative overflow-hidden bg-neutral-50 dark:bg-neutral-950">
       <div className="max-w-7xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center space-y-4 mb-16">
-          <h2 className="text-5xl font-bold gradient-text text-shadow-lg">
-            Simple, Transparent Pricing
+        <div className="text-center mb-20">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tighter text-neutral-900 dark:text-neutral-100 mb-6">
+            Simple, Transparent <br />
+            <span className="text-neutral-400 dark:text-neutral-600">Pricing.</span>
           </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Choose the plan that fits your content creation needs
+          <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-xl mx-auto leading-relaxed">
+            Choose the plan that fits your scale. No hidden fees. Cancel anytime.
           </p>
         </div>
 
-        {/* Pricing Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {plans.map((plan, index) => (
-            <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.15, duration: 0.5 }}
-              viewport={{ once: true }}
-            >
-              <GlassCard
-                variant={plan.popular ? "premium" : undefined}
-                className={`p-8 relative transition-all duration-500 ${
-                  plan.popular 
-                    ? "border-2 border-primary/50 scale-[1.03] shadow-2xl"
-                    : "hover:shadow-xl"
+            <div
+              key={index}
+              className={`relative p-8 border flex flex-col h-full transition-all duration-500 group ${plan.popular
+                ? "bg-white dark:bg-black border-black dark:border-white shadow-2xl scale-105 z-10"
+                : "bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-lg hover:-translate-y-1"
                 }`}
-                data-testid={`pricing-plan-${index}`}
-              >
-                {/* Popular Badge */}
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-primary to-secondary text-primary-foreground px-6 py-2 font-semibold">
-                      <Star className="w-4 h-4 mr-1" />
-                      Most Popular
-                    </Badge>
-                  </div>
-                )}
-
-                <div className="space-y-6">
-                  {/* Header */}
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        plan.popular
-                          ? "bg-gradient-to-br from-primary to-secondary"
-                          : "bg-muted"
-                      }`}
-                    >
-                      <plan.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-semibold text-foreground">
-                        {plan.name}
-                      </h3>
-                      <p className="text-muted-foreground">{plan.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-baseline">
-                    <span
-                      className={`text-5xl font-bold ${
-                        plan.popular ? "gradient-text" : "text-foreground"
-                      }`}
-                    >
-                      {plan.price}
-                    </span>
-                    <span className="text-muted-foreground ml-2">
-                      {plan.period}
-                    </span>
-                  </div>
-
-                  {/* Features */}
-                  <ul className="space-y-3">
-                    {plan.features.map((feature, featureIndex) => (
-                      <li
-                        key={featureIndex}
-                        className="flex items-center space-x-3"
-                      >
-                        <Check className="w-5 h-5 text-chart-2 flex-shrink-0" />
-                        <span className="text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {/* CTA Button */}
-                  <AnimatedButton
-                    animation={plan.popular ? "glow" : "scale"}
-                    variant={plan.buttonVariant}
-                    aria-label={`Select ${plan.name} plan`}
-                    className={`w-full py-3 font-semibold transition-all duration-300 ${
-                      plan.popular
-                        ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg hover:shadow-xl"
-                        : "glass-effect hover:bg-accent/20"
-                    }`}
-                    data-testid={`pricing-button-${index}`}
-                  >
-                    {plan.buttonText}
-                  </AnimatedButton>
+            >
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black dark:bg-white text-white dark:text-black px-4 py-1 text-sm font-bold shadow-md uppercase tracking-widest animate-pulse">
+                  Recommended
                 </div>
-              </GlassCard>
-            </motion.div>
-          ))}
-        </div>
+              )}
 
-        {/* Additional Info */}
-        <div className="text-center mt-12 space-y-4">
-          <p className="text-sm text-muted-foreground">
-            All plans include 14-day free trial • No setup fees • Cancel anytime
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
-            <span className="flex items-center space-x-2">
-              <Check className="w-4 h-4 text-chart-2" />
-              <span>No credit card required</span>
-            </span>
-            <span className="flex items-center space-x-2">
-              <Check className="w-4 h-4 text-chart-2" />
-              <span>24/7 support</span>
-            </span>
-            <span className="flex items-center space-x-2">
-              <Check className="w-4 h-4 text-chart-2" />
-              <span>Secure & private</span>
-            </span>
-          </div>
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-2 uppercase tracking-widest">{plan.name}</h3>
+                <div className="flex items-baseline gap-1 mb-4">
+                  <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">{plan.price}</span>
+                  {plan.price !== "Custom" && <span className="text-neutral-500 dark:text-neutral-400">/month</span>}
+                </div>
+                <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
+                  {plan.description}
+                </p>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                {plan.features.map((feature, i) => (
+                  <div key={i} className="flex items-start gap-3 group/feature">
+                    <div className="mt-0.5 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center group-hover/feature:bg-black dark:group-hover/feature:bg-white transition-colors duration-300">
+                      <Check className="w-2.5 h-2.5 text-black dark:text-white group-hover/feature:text-white dark:group-hover/feature:text-black transition-colors duration-300" />
+                    </div>
+                    <span className="text-sm text-neutral-600 dark:text-neutral-300">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                className={`w-full h-12 rounded-none font-bold transition-all duration-300 uppercase tracking-widest relative overflow-hidden ${plan.popular
+                  ? "bg-black hover:bg-black/90 text-white dark:bg-white dark:text-black dark:hover:bg-white/90 shadow-lg"
+                  : "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+                  }`}
+              >
+                <span className="relative z-10">{plan.cta}</span>
+                {plan.popular && (
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                )}
+              </Button>
+            </div>
+          ))}
         </div>
       </div>
     </section>

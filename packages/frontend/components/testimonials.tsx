@@ -1,139 +1,214 @@
-import { Star, Quote } from "lucide-react";
-import { GlassCard } from "@/components/ui/glass-card";
+"use client";
 
-const testimonials = [
-  {
-    name: "Alex Chen",
-    role: "Content Creator",
-    avatar: "AC",
-    rating: 5,
-    content: "OmniContent AI has revolutionized how I create content. What used to take hours now takes minutes, and the quality is incredible.",
-    gradient: "from-chart-1 to-chart-2"
-  },
-  {
-    name: "Sarah Martinez", 
-    role: "Marketing Director",
-    avatar: "SM",
-    rating: 5,
-    content: "The translation feature is a game-changer. I can now reach global audiences effortlessly with accurate, context-aware translations.",
-    gradient: "from-chart-2 to-chart-3"
-  },
-  {
-    name: "Michael Johnson",
-    role: "Podcast Host", 
-    avatar: "MJ",
-    rating: 5,
-    content: "As a podcaster, this tool has streamlined my entire workflow. From recording to publishing across all platforms - it's seamless.",
-    gradient: "from-chart-3 to-chart-4"
-  },
-  {
-    name: "Emily Rodriguez",
-    role: "Social Media Manager",
-    avatar: "ER", 
-    rating: 5,
-    content: "The AI-generated social media content is spot-on every time. It understands our brand voice and creates engaging posts instantly.",
-    gradient: "from-chart-4 to-chart-5"
-  },
-  {
-    name: "David Kim",
-    role: "Video Producer",
-    avatar: "DK",
-    rating: 5, 
-    content: "Real-time processing is incredible. I can see my content being transformed as it uploads. The efficiency gains are massive.",
-    gradient: "from-chart-5 to-primary"
-  },
-  {
-    name: "Lisa Thompson",
-    role: "Educational Content Creator",
-    avatar: "LT",
-    rating: 5,
-    content: "Creating educational content in multiple languages has never been easier. The accuracy and context preservation is remarkable.",
-    gradient: "from-primary to-secondary"
-  }
-];
-
-const companies = [
-  "TechCorp", "MediaFlow", "Creator+", "StreamLab", "Podify", "ContentAI", 
-  "VoiceGen", "TransLingo", "AICreate", "FlowMedia", "ContentPro", "SmartGen"
-];
+import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+import { motion } from "framer-motion";
+import { Check, MessageSquare, Quote, Star } from "lucide-react";
 
 export function TestimonialsSection() {
+  const testimonials = [
+    {
+      quote: "The transcription accuracy is unmatched. It captures technical jargon perfectly.",
+      author: "Sarah Jenkins",
+      role: "CTO, TechFlow",
+      header: <TestimonialVisual1 />,
+      className: "md:col-span-2",
+    },
+    {
+      quote: "We reduced our content production time by 60% in the first week.",
+      author: "David Chen",
+      role: "Head of Growth, ScaleUp",
+      header: <TestimonialVisual2 />,
+      className: "md:col-span-1",
+    },
+    {
+      quote: "The ability to instantly repurpose video into blog posts is a game changer.",
+      author: "Elena Rodriguez",
+      role: "Content Lead, ViralLoop",
+      header: <TestimonialVisual3 />,
+      className: "md:col-span-1",
+    },
+    {
+      quote: "Finally, an AI tool that understands brand voice and nuance.",
+      author: "Marcus Johnson",
+      role: "Director of Marketing, Nexus",
+      header: <TestimonialVisual4 />,
+      className: "md:col-span-2",
+    },
+  ];
+
   return (
-    <section className="py-24 relative">
-      <div className="dot-pattern absolute inset-0 opacity-20" />
-      <div className="max-w-7xl mx-auto px-6 relative z-10">
-        <div className="text-center space-y-4 mb-16 animate-fade-in">
-          <h2 className="text-5xl font-bold gradient-text text-shadow-lg">
-            Trusted by Content Creators
-          </h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Join thousands of creators who are scaling their content with AI
-          </p>
+    <section className="py-24 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6 mb-16">
+        <div className="flex items-center space-x-2 mb-4">
+          <MessageSquare className="w-5 h-5" />
+          <span className="font-bold uppercase tracking-widest text-sm">User Feedback</span>
         </div>
-
-        {/* Company Logos */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 items-center justify-center mb-20">
-          {companies.map((company, index) => (
-            <GlassCard
-              key={company}
-              className="p-6 flex items-center justify-center h-20 opacity-60 hover:opacity-100 transition-all duration-300 group"
-              data-testid={`company-${index}`}
-            >
-              <span className="text-lg font-semibold text-muted-foreground group-hover:gradient-text transition-all duration-300">
-                {company}
-              </span>
-            </GlassCard>
-          ))}
-        </div>
-
-        {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <GlassCard
-              key={testimonial.name}
-              variant="premium"
-              className="p-8 card-3d group hover:shadow-2xl transition-all duration-500 relative overflow-hidden"
-              style={{ animationDelay: `${index * 0.1}s` }}
-              data-testid={`testimonial-${index}`}
-            >
-              {/* Quote Icon */}
-              <div className="absolute top-6 right-6 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-                <Quote className="w-8 h-8" />
-              </div>
-              
-              {/* Rating */}
-              <div className="flex items-center space-x-1 mb-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className="w-5 h-5 fill-chart-3 text-chart-3"
-                  />
-                ))}
-              </div>
-              
-              {/* Content */}
-              <p className="text-muted-foreground leading-relaxed mb-6 relative z-10">
-                "{testimonial.content}"
-              </p>
-              
-              {/* Author */}
-              <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 bg-gradient-to-br ${testimonial.gradient} rounded-full flex items-center justify-center text-white font-semibold shadow-lg`}>
-                  {testimonial.avatar}
-                </div>
-                <div>
-                  <div className="font-semibold text-foreground">
-                    {testimonial.name}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {testimonial.role}
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
-          ))}
-        </div>
+        <h2 className="text-4xl md:text-5xl font-bold tracking-tighter max-w-2xl">
+          Trusted by the <br />
+          <span className="text-neutral-400 dark:text-neutral-600">World's Best Teams.</span>
+        </h2>
       </div>
+      <BentoGrid className="max-w-7xl mx-auto px-6">
+        {testimonials.map((item, i) => (
+          <BentoGridItem
+            key={i}
+            title={item.author}
+            description={item.role}
+            header={item.header}
+            icon={<Quote className="h-4 w-4 text-neutral-500" />}
+            className={item.className}
+          >
+            <div className="mt-4 text-sm font-light italic text-neutral-600 dark:text-neutral-300 leading-relaxed">
+              "{item.quote}"
+            </div>
+          </BentoGridItem>
+        ))}
+      </BentoGrid>
     </section>
   );
 }
+
+// Testimonial 1 - Star rating with quote marks
+const TestimonialVisual1 = () => {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-white dark:bg-black relative overflow-hidden group">
+      {/* Large quote mark background */}
+      <div className="absolute top-4 right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-500">
+        <Quote className="w-32 h-32 text-black dark:text-white" />
+      </div>
+
+      {/* Animated stars */}
+      <div className="flex gap-2 mb-4 relative z-10">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.1, duration: 0.3 }}
+            whileHover={{ scale: 1.2, rotate: 10 }}
+            className="cursor-pointer"
+          >
+            <Star className="w-5 h-5 text-black dark:text-white fill-current" />
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Rating text */}
+      <motion.div
+        className="text-xs font-mono text-neutral-500 bg-neutral-100 dark:bg-neutral-900 px-3 py-1 rounded-full"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6 }}
+      >
+        5.0 / 5.0
+      </motion.div>
+    </div>
+  );
+};
+
+// Testimonial 2 - User avatar placeholder
+const TestimonialVisual2 = () => {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center p-6 bg-neutral-50 dark:bg-neutral-900 relative overflow-hidden">
+      <div className="absolute inset-0 bg-grid-black/[0.02] dark:bg-grid-white/[0.02]" />
+
+      <motion.div
+        className="w-20 h-20 bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 rounded-full mb-4 relative overflow-hidden shadow-sm flex items-center justify-center z-10"
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        {/* Initials */}
+        <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+          DC
+        </div>
+
+        {/* Verified Badge */}
+        <motion.div
+          className="absolute bottom-1 right-1 w-5 h-5 bg-blue-500 rounded-full border-2 border-white dark:border-black flex items-center justify-center"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.5, type: "spring" }}
+        >
+          <Check className="w-2.5 h-2.5 text-white" />
+        </motion.div>
+      </motion.div>
+
+      {/* Company indicator */}
+      <motion.div
+        className="h-1 w-16 bg-neutral-300 dark:bg-neutral-700 rounded-full"
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: 1 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+      />
+    </div>
+  );
+};
+
+// Testimonial 3 - Minimal geometric
+const TestimonialVisual3 = () => {
+  return (
+    <div className="w-full h-full flex items-center justify-center p-6 bg-white dark:bg-black relative overflow-hidden">
+      {/* Grid background */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="w-full h-full grid grid-cols-6 grid-rows-6">
+          {[...Array(36)].map((_, i) => (
+            <div key={i} className="border-r border-b border-neutral-400 dark:border-neutral-600" />
+          ))}
+        </div>
+      </div>
+
+      {/* Animated square */}
+      <motion.div
+        className="w-16 h-16 border-2 border-black dark:border-white relative z-10 flex items-center justify-center"
+        animate={{ rotate: [0, 90, 180, 270, 360] }}
+        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+      >
+        <div className="w-8 h-8 bg-neutral-200 dark:bg-neutral-800" />
+
+        {/* Orbiting dot */}
+        <motion.div
+          className="absolute -top-1 -right-1 w-3 h-3 bg-black dark:bg-white"
+          animate={{ scale: [1, 1.5, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+      </motion.div>
+    </div>
+  );
+};
+
+// Testimonial 4 - Quote with gradient
+const TestimonialVisual4 = () => {
+  return (
+    <div className="w-full h-full flex items-center justify-center p-8 bg-gradient-to-br from-neutral-900 to-black dark:from-neutral-100 dark:to-neutral-50 text-white dark:text-black relative overflow-hidden group">
+      {/* Subtle glow */}
+      <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-neutral-700 dark:bg-neutral-300 rounded-full blur-3xl opacity-30 group-hover:opacity-50 transition-opacity duration-700" />
+
+      {/* Large opening quote */}
+      <div className="relative z-10 space-y-4">
+        <motion.div
+          className="text-6xl font-serif leading-none"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          "
+        </motion.div>
+
+        {/* Quote lines */}
+        <div className="space-y-2">
+          {[100, 85, 60].map((width, i) => (
+            <motion.div
+              key={i}
+              className="h-1 bg-white/20 dark:bg-black/20 rounded-full"
+              style={{ width: `${width}%` }}
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.3 + i * 0.1, duration: 0.4 }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};

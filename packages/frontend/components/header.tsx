@@ -1,19 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { cn } from "@/lib/utils";
 import {
-  UserButton,
   SignedIn,
   SignedOut,
   SignInButton,
+  UserButton,
 } from "@clerk/nextjs";
-import { Menu, X, Sparkles, Plus, LayoutDashboard } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { GridBackground } from "@/components/ui/grid-background";
-import { cn } from "@/lib/utils";
+import { LayoutDashboard, Menu, Sparkles, X } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import React, { useEffect, useState } from "react";
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
@@ -28,176 +27,123 @@ export const Header: React.FC = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const navItems = [
+    { name: "Create", href: "/create", icon: Sparkles },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  ];
+
   return (
-    <GridBackground pattern="subtle-dots" className="sticky top-0 z-50">
-      <header
-        className={cn(
-          "relative transition-all duration-500",
-          isScrolled ? "nav-blur" : "glass-effect backdrop-blur-xl"
-        )}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/20 to-transparent" />
+    <header
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b",
+        isScrolled
+          ? "bg-white/80 dark:bg-black/80 backdrop-blur-md border-neutral-200 dark:border-neutral-800 py-3"
+          : "bg-transparent border-transparent py-5"
+      )}
+    >
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 bg-black dark:bg-white flex items-center justify-center rounded-none">
+              <span className="text-white dark:text-black font-bold text-sm transition-transform duration-500 group-hover:rotate-180">O</span>
+            </div>
+            <span className="font-bold text-lg tracking-tight">OmniContent</span>
+          </Link>
 
-        <div className="relative max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <Link href="/" className="group flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg shadow-lg animate-glow" />
-                <Sparkles className="absolute inset-0 w-4 h-4 m-auto text-primary-foreground animate-pulse" />
-              </div>
-              <div className="space-y-0.5">
-                <h1 className="text-xl font-bold gradient-text">
-                  OmniContent AI
-                </h1>
-                <p className="text-xs text-muted-foreground font-medium tracking-wide">
-                  Premium Content Suite
-                </p>
-              </div>
-            </Link>
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <div
+                    className={cn(
+                      "px-4 py-2 rounded-none text-sm font-medium transition-all duration-300 flex items-center gap-2 relative group overflow-hidden",
+                      isActive
+                        ? "text-black dark:text-white"
+                        : "text-neutral-500 hover:text-black dark:hover:text-white"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {item.name}
+                    {isActive && (
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-black dark:bg-white" />
+                    )}
+                    <span className="absolute inset-0 bg-neutral-100 dark:bg-neutral-800 opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-2">
-              <Link href="/create">
+          {/* Actions */}
+          <div className="flex items-center gap-4">
+            <ThemeSwitcher />
+
+            <SignedOut>
+              <SignInButton>
                 <Button
-                  variant={pathname === "/create" ? "default" : "ghost"}
                   size="sm"
-                  className={cn(
-                    "transition-all duration-200",
-                    pathname === "/create"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  )}
-                  data-testid="nav-create"
+                  className="hidden md:inline-flex bg-black text-white dark:bg-white dark:text-black hover:opacity-90 rounded-full px-6 font-medium transition-transform hover:scale-105 active:scale-95"
                 >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Create
+                  Get Started
                 </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button
-                  variant={pathname === "/dashboard" ? "default" : "ghost"}
-                  size="sm"
-                  className={cn(
-                    "transition-all duration-200",
-                    pathname === "/dashboard"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  )}
-                  data-testid="nav-dashboard"
-                >
-                  <LayoutDashboard className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
-            </nav>
+              </SignInButton>
+            </SignedOut>
 
-            {/* Actions */}
-            <div className="flex items-center space-x-3">
-              {/* Keep your ThemeSwitcher */}
-              <ThemeSwitcher />
+            <SignedIn>
+              <UserButton
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    userButtonAvatarBox: "w-8 h-8",
+                  },
+                }}
+              />
+            </SignedIn>
 
+            {/* Mobile Menu Toggle */}
+            <button
+              className="md:hidden p-2"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 p-6 space-y-4 animate-in slide-in-from-top-5">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="font-medium">{item.name}</span>
+              </Link>
+            ))}
+            <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800">
               <SignedOut>
                 <SignInButton>
-                  <Button
-                    size="sm"
-                    className="hidden md:inline-flex premium-button font-medium"
-                    data-testid="get-started-button"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
+                  <Button className="w-full bg-black text-white dark:bg-white dark:text-black rounded-full">
                     Get Started
                   </Button>
                 </SignInButton>
               </SignedOut>
-
-              <SignedIn>
-                <UserButton
-                  afterSignOutUrl="/"
-                  appearance={{
-                    elements: {
-                      userButtonAvatarBox: "w-8 h-8",
-                      userButtonPopoverCard:
-                        "glass-effect border border-border/50 shadow-lg",
-                      userButtonActionButton: "text-sm",
-                      userButtonPrimaryButton:
-                        "bg-gradient-to-r from-foreground to-muted-foreground text-background border-0 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 font-medium rounded-lg",
-                    },
-                  }}
-                />
-              </SignedIn>
-
-              {/* Mobile Menu Toggle */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden glass-effect"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                data-testid="mobile-menu-toggle"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-4 h-4" />
-                ) : (
-                  <Menu className="w-4 h-4" />
-                )}
-              </Button>
             </div>
           </div>
-
-          {/* Mobile Menu */}
-          {isMobileMenuOpen && (
-            <div className="md:hidden mt-6 pt-6 border-t border-border/30 space-y-3 animate-fade-in">
-              <Link href="/">
-                <Button
-                  variant="ghost"
-                  className="w-full text-left justify-start text-muted-foreground hover:text-foreground"
-                  data-testid="mobile-nav-home"
-                >
-                  Home
-                </Button>
-              </Link>
-              <Link href="/create">
-                <Button
-                  variant={pathname === "/create" ? "default" : "ghost"}
-                  size="sm"
-                  className={cn(
-                    "transition-all duration-200",
-                    pathname === "/create"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  )}
-                  data-testid="nav-create"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Create
-                </Button>
-              </Link>
-              <Link href="/dashboard">
-                <Button
-                  variant="ghost"
-                  className="w-full text-left justify-start text-muted-foreground hover:text-foreground"
-                  data-testid="mobile-nav-dashboard"
-                >
-                  <LayoutDashboard className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
-              <div className="pt-3">
-                <SignedOut>
-                  <SignInButton>
-                    <Button
-                      className="w-full premium-button font-medium"
-                      data-testid="mobile-get-started-button"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Get Started
-                    </Button>
-                  </SignInButton>
-                </SignedOut>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
-    </GridBackground>
+        )}
+      </div>
+    </header>
   );
 };
