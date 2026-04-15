@@ -3,6 +3,7 @@ import clerkClient from '@clerk/clerk-sdk-node';
 import amqplib from 'amqplib';
 import { exec } from 'child_process';
 import dotenv from 'dotenv';
+import express from 'express';
 import { existsSync, mkdirSync } from 'fs';
 import mongoose from 'mongoose';
 import path from 'path';
@@ -92,6 +93,12 @@ const connectDB = async () => {
 // };
 
 const startWorker = async () => {
+    // Start dummy Express server for Render Web Service compatibility
+    const app = express();
+    const PORT = process.env.PORT || 8081;
+    app.get('/', (req, res) => res.send('OmniContent Worker is running.'));
+    app.listen(PORT, () => console.log(`Worker dummy server listening on port ${PORT}`));
+
     await mongoose.connect(process.env.MONGO_URI!);
     console.log('Worker connected to MongoDB.');
     try {
