@@ -15,23 +15,16 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "http://localhost:3000" } });
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const io = new Server(server, { cors: { origin: FRONTEND_URL } });
 const PORT = process.env.PORT || 8080;
 
 app.use(cors({
-    origin: "http://localhost:3000", // Allow frontend origin
+    origin: FRONTEND_URL, // Allow frontend origin
     credentials: true,
 }));
 app.use(express.json());
 app.use(clerkMiddleware());
-app.use('/clips', (req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-    next();
-}, express.static(path.join(__dirname, '../public/clips')));
-app.use('/sources', (req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-    next();
-}, express.static(path.join(__dirname, '../public/sources')));
 
 io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.id}`);

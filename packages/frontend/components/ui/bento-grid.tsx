@@ -62,7 +62,7 @@ export const BentoGridItem = ({
 
             {/* Header Section - Contained with overflow hidden */}
             <div className="relative flex-1 overflow-hidden bg-neutral-50 dark:bg-neutral-900/50">
-                <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden flex items-center justify-center">
                     {header}
                 </div>
             </div>

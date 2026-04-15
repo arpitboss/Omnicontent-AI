@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { createContext, ReactNode, useContext, useMemo } from 'react';
 
 // Interfaces for our state and context
 interface TypewriterState {
@@ -42,6 +42,12 @@ class TypewriterStore {
         }, speed);
     };
 
+    showImmediately = (id: string, text: string) => {
+        if (this.animations[id]?.isDone) return;
+        this.animations[id] = { displayText: text, isDone: true };
+        this.emitChange();
+    };
+
     private emitChange = () => {
         for (const listener of this.listeners) {
             listener();
@@ -56,8 +62,8 @@ export const TypewriterProvider = ({ children }: { children: ReactNode }) => {
     // useMemo ensures the store instance is created only once
     const store = useMemo(() => new TypewriterStore(), []);
     return (
-        <TypewriterContext.Provider value= { store } >
-        { children }
+        <TypewriterContext.Provider value={store} >
+            {children}
         </TypewriterContext.Provider>
     );
 };

@@ -28,9 +28,22 @@ export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
 
   const isTranslated = !!translatedText;
   const linesToDisplay = isTranslated
-    ? (translatedText ? translatedText.split('\n').map((line) => {
-      const [timestamp, ...textParts] = line.split(': ');
-      return { timestamp, text: textParts.join(': ') };
+    ? (translatedText ? translatedText.split('\n').map((line, index) => {
+      // Try to find a timestamp at the start of the line (e.g., 00:00 or 00:00:00)
+      const timestampMatch = line.match(/^(\d{1,2}:\d{2}(?::\d{2})?)(?::|\s)\s*(.*)/);
+
+      if (timestampMatch) {
+        return { timestamp: timestampMatch[1], text: timestampMatch[2] };
+      }
+
+      // Fallback: If no timestamp found in translation, use the original transcript's timestamp
+      // This assumes the translation maintains the same line count, which is typical for this workflow.
+      const originalTimestamp = transcript && transcript[index] ? transcript[index].timestamp : '';
+      
+      // Clean the line of any potential leading non-text characters if the split failed
+      const cleanText = line.replace(/^[:\s]+/, '');
+
+      return { timestamp: originalTimestamp, text: cleanText };
     }) : [])
     : transcript || [];
 

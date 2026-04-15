@@ -231,7 +231,7 @@ export default function Create() {
 
                   {/* Right Column */}
                   <div className="space-y-8">
-                    <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 p-6 hover:border-black dark:hover:border-white transition-colors duration-300 group cursor-pointer" onClick={() => setEnableCaptions(!enableCaptions)}>
+                    <div className="flex items-center justify-between border border-neutral-200 dark:border-neutral-800 p-6 hover:border-black dark:hover:border-white transition-colors duration-300 group">
                       <div className="space-y-1">
                         <Label htmlFor="captions" className="font-bold uppercase tracking-wider cursor-pointer group-hover:text-black dark:group-hover:text-white transition-colors">Neural Captions</Label>
                         <p className="text-xs text-neutral-500 font-mono">AI-generated subtitles</p>

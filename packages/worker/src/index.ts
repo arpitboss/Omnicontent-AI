@@ -1,15 +1,15 @@
 // packages/worker/src/index.ts
+import clerkClient from '@clerk/clerk-sdk-node';
 import amqplib from 'amqplib';
+import { exec } from 'child_process';
 import dotenv from 'dotenv';
+import { existsSync, mkdirSync } from 'fs';
 import mongoose from 'mongoose';
+import path from 'path';
+import { promisify } from 'util';
 import { atomizeVideoContent } from './aiService';
 import Content from './models/contentModel';
 import { reformatVideoAndAddCaptions } from './services/videoService';
-import { exec } from 'child_process';
-import path from 'path';
-import { promisify } from 'util';
-import { unlinkSync, existsSync } from 'fs';
-import clerkClient from '@clerk/clerk-sdk-node';
 import { parseTimestampToSeconds } from './utils/time';
 
 dotenv.config();
@@ -95,8 +95,10 @@ const startWorker = async () => {
     await mongoose.connect(process.env.MONGO_URI!);
     console.log('Worker connected to MongoDB.');
     try {
-        const connection = await amqplib.connect('amqp://localhost?heartbeat=60');
+        const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost?heartbeat=60';
+        const connection = await amqplib.connect(rabbitMqUrl);
         const channel = await connection.createChannel();
+        const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
         // WORKER 1: Fast Text & Caching (Listens to 'content_jobs')
         const textQueue = 'content_jobs';
@@ -114,17 +116,50 @@ const startWorker = async () => {
 
                     if (url && !localSourcePath) {
                         finalSourcePath = path.join(__dirname, `../../backend/public/sources/${contentId}_source.mp4`);
+
+                        // Ensure directory exists
+                        const sourceDir = path.dirname(finalSourcePath);
+                        if (!existsSync(sourceDir)) {
+                            console.log(`[📁] Creating directory: ${sourceDir}`);
+                            mkdirSync(sourceDir, { recursive: true });
+                        }
+
                         console.log(`[🔽] Caching source video for ${contentId}...`);
-                        await execPromise(`yt-dlp -o "${finalSourcePath}" "${url}"`);
+                        const cleanUrl = url.trim();
+                        // Use default format selection (bestvideo+bestaudio/best) to avoid "format not available" errors.
+                        // This might require ffmpeg for merging, but we need ffmpeg anyway for processing.
+                        const command = `yt-dlp -o "${finalSourcePath}" "${cleanUrl}"`;
+                        console.log(`[▶️] Executing: ${command}`);
+
+                        try {
+                            const { stdout, stderr } = await execPromise(command);
+                            console.log(`[✅] Caching complete. Path: ${finalSourcePath}`);
+                            if (stdout) console.log(`[yt-dlp stdout]: ${stdout.slice(0, 200)}...`); // Log first 200 chars
+                        } catch (execError: any) {
+                            console.error(`[❌] yt-dlp failed!`);
+                            console.error(`Command: ${command}`);
+                            console.error(`Error: ${execError.message}`);
+                            if (execError.stderr) console.error(`Stderr: ${execError.stderr}`);
+                            throw new Error(`Failed to download video: ${execError.message}`);
+                        }
                     } else {
                         console.log(`[💿] Using pre-uploaded file for ${contentId} at ${finalSourcePath}`);
                     }
 
                     await Content.findByIdAndUpdate(contentId, { localSourcePath: finalSourcePath });
 
-                    const analysis = await atomizeVideoContent(url || finalSourcePath, options);
+                    const analysis = await atomizeVideoContent(finalSourcePath, options);
 
                     const clipMetadata = (analysis.viralMoments || []).map(moment => {
+                        console.log(`[🕒] Parsing timestamps for moment: ${moment.title}`);
+                        console.log(`    Moment Keys: ${Object.keys(moment).join(', ')}`);
+                        console.log(`    Raw startTime: ${moment.startTime} (${typeof moment.startTime})`);
+                        console.log(`    Raw endTime: ${moment.endTime} (${typeof moment.endTime})`);
+
+                        const startTime = parseTimestampToSeconds(moment.startTime as any);
+                        const endTime = parseTimestampToSeconds(moment.endTime as any);
+                        console.log(`    Parsed: ${startTime} - ${endTime} (Duration: ${endTime - startTime})`);
+
                         const wordEvents = (moment.wordEvents || []).map(ev => ({
                             word: ev.word,
                             start: parseTimestampToSeconds(ev.start as any),
@@ -136,8 +171,8 @@ const startWorker = async () => {
                             summary: moment.summary,
                             wordEvents: wordEvents,
                             status: 'PENDING',
-                            startTime: parseTimestampToSeconds(moment.startTime as any),
-                            endTime: parseTimestampToSeconds(moment.endTime as any),
+                            startTime: startTime,
+                            endTime: endTime,
                         };
                     });
 
@@ -207,13 +242,19 @@ const startWorker = async () => {
                     console.log(`[📹] Clip ${clipId} finished processing.`);
 
                     // After updating, refetch the document to check the status of all clips
+                    // After updating, refetch the document to check the status of all clips
                     const updatedContent = await Content.findById(contentId);
-                    const allClipsReady = updatedContent?.clips.every(c => c.status === 'READY');
+                    const allClipsProcessed = updatedContent?.clips.every(c => c.status === 'READY' || c.status === 'FAILED');
 
-                    if (allClipsReady) {
-                        // If all clips are ready, update the main document's status
-                        await Content.findByIdAndUpdate(contentId, { status: 'COMPLETE' });
-                        console.log(`[🎉] All clips for content ${contentId} are generated. Job is COMPLETE.`);
+                    if (allClipsProcessed) {
+                        const allFailed = updatedContent?.clips.every(c => c.status === 'FAILED');
+                        if (allFailed) {
+                            await Content.findByIdAndUpdate(contentId, { status: 'FAILED', errorMessage: 'All video clips failed to generate.' });
+                            console.log(`[❌] All clips for content ${contentId} failed. Job marked as FAILED.`);
+                        } else {
+                            await Content.findByIdAndUpdate(contentId, { status: 'COMPLETE' });
+                            console.log(`[🎉] All clips for content ${contentId} are processed. Job is COMPLETE.`);
+                        }
                     }
                 } catch (err) {
                     await Content.updateOne({ "clips._id": clipId }, { $set: { "clips.$.status": 'FAILED' } });
@@ -260,13 +301,13 @@ const startWorker = async () => {
 
                     await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'COMPLETE', "reformattedClips.$.url": downloadUrl } });
 
-                    await fetch('http://localhost:8080/api/internal/notify', {
+                    await fetch(`${BACKEND_URL}/api/internal/notify`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId, downloadUrl, reformatJobId }),
                     });
                 } catch (err) {
                     await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'FAILED' } });
-                    await fetch('http://localhost:8080/api/internal/notify', {
+                    await fetch(`${BACKEND_URL}/api/internal/notify`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ userId, reformatJobId, error: 'Failed to generate video.' }),
                     });

@@ -1,12 +1,14 @@
 // packages/backend/src/routes/contentRoutes.ts
-import express from 'express';
-import amqplib from 'amqplib';
-import Content from '../models/contentModel'; // Import the model
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { requireAuth } from '@clerk/express';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import amqplib from 'amqplib';
+import archiver from 'archiver';
+import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import archiver from 'archiver';
+import fs from 'fs';
+import Content from '../models/contentModel'; // Import the model
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 require('dotenv').config();
 
@@ -36,10 +38,11 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({storage: storage});
+const upload = multer({ storage: storage });
 
 async function queueJob(payload: any) {
-    const connection = await amqplib.connect('amqp://localhost');
+    const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
+    const connection = await amqplib.connect(rabbitMqUrl);
     const channel = await connection.createChannel();
     const queue = 'content_jobs';
     await channel.assertQueue(queue, { durable: true });
@@ -100,17 +103,20 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
     const clipLimit = plan === 'pro' ? 6 : 3;
 
     try {
+        const cloudUrl = await uploadToCloudinary(req.file.path, `omnicontent/sources/${path.basename(req.file.path, path.extname(req.file.path))}`, true);
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Clean up local
+
         const newContent = new Content({
             userId,
-            sourceUrl: path.basename(req.file.path), // Just store the filename
-            localSourcePath: req.file.path, // Save the path where multer stored the file
+            sourceUrl: cloudUrl,
             status: 'PENDING',
         });
         await newContent.save();
 
         const job = {
-            userId, contentId: newContent._id,
-            localSourcePath: newContent.localSourcePath,
+            url: cloudUrl, 
+            userId, 
+            contentId: newContent._id,
             options: {
                 clipLength: Number(clipLength),
                 enableCaptions: enableCaptions === 'true',
@@ -158,7 +164,7 @@ router.post('/translate', requireAuth(), async (req, res) => {
             throw new Error("GEMINI_API_KEY is not set in environment variables.");
         }
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `Translate the following text into ${targetLanguage}. Return only the translated text, with no additional commentary or explanations:\n\n${text}`;
         const result = await model.generateContent(prompt);
@@ -209,7 +215,13 @@ router.get('/:contentId/export-all', requireAuth(), async (req: express.Request,
                 // We get the local file path from the URL
                 const clipFileName = path.basename(clip.s3Url);
                 const clipFilePath = path.join(__dirname, `../../public/clips/${clipFileName}`);
-                archive.file(clipFilePath, { name: `clips/clip_${index + 1}.mp4` });
+                // Check if file exists before adding
+                const fs = require('fs');
+                if (fs.existsSync(clipFilePath)) {
+                    archive.file(clipFilePath, { name: `clips/clip_${index + 1}.mp4` });
+                } else {
+                    console.warn(`[Export] Clip file not found: ${clipFilePath}`);
+                }
             }
         });
 
@@ -245,7 +257,8 @@ router.post('/:contentId/clips/:clipId/reformat', requireAuth(), async (req, res
             userId
         };
 
-        const connection = await amqplib.connect('amqp://localhost');
+        const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
+        const connection = await amqplib.connect(rabbitMqUrl);
         const channel = await connection.createChannel();
         const queue = 'reformatting_jobs';
         await channel.assertQueue(queue, { durable: true });
@@ -270,7 +283,11 @@ router.get('/:contentId/:videoId', requireAuth(), async (req: express.Request, r
             return res.status(404).json({ message: 'Content not found' });
         }
 
-        res.sendFile(videoId, { root: path.join(__dirname, '../../public/sources') });
+        if (content.sourceUrl && content.sourceUrl.startsWith('http')) {
+            res.redirect(content.sourceUrl);
+        } else {
+            res.sendFile(videoId, { root: path.join(__dirname, '../../public/sources') });
+        }
     } catch (error) {
         console.error('Failed to fetch content:', error);
         res.status(500).json({ message: 'Internal server error' });

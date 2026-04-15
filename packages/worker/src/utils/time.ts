@@ -3,10 +3,11 @@
  * @param ts The timestamp string from the AI.
  * @returns The total time in seconds as a number.
  */
-export const parseTimestampToSeconds = (ts: string): number => {
+export const parseTimestampToSeconds = (ts: string | number): number => {
+    if (typeof ts === 'number') return ts;
     if (!ts) return 0;
-    
-    const parts = ts.split(':').map(part => parseFloat(part));
+
+    const parts = ts.toString().split(':').map(part => parseFloat(part));
     let seconds = 0;
     if (parts.length === 3) { // HH:MM:SS.ms
         seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];

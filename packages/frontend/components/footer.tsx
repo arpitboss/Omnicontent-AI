@@ -39,7 +39,7 @@ export function Footer() {
       {/* CTA Section with gradient background */}
       <div className="relative bg-gradient-to-b from-neutral-50 via-purple-50/30 to-purple-100/50 dark:from-neutral-950 dark:via-purple-950/20 dark:to-purple-900/30 py-24">
         {/* Decorative tilted lines - Left */}
-        <div className="absolute left-0 top-0 bottom-0 w-32 opacity-10">
+        <div className="absolute left-0 top-0 bottom-0 w-32 opacity-30">
           <svg className="w-full h-full" viewBox="0 0 100 400" preserveAspectRatio="none">
             {[...Array(20)].map((_, i) => (
               <line
@@ -60,7 +60,7 @@ export function Footer() {
         <div className="absolute left-32 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-neutral-300 dark:via-neutral-700 to-transparent opacity-50" />
 
         {/* Decorative tilted lines - Right */}
-        <div className="absolute right-0 top-0 bottom-0 w-32 opacity-10">
+        <div className="absolute right-0 top-0 bottom-0 w-32 opacity-30">
           <svg className="w-full h-full" viewBox="0 0 100 400" preserveAspectRatio="none">
             {[...Array(20)].map((_, i) => (
               <line
@@ -81,7 +81,7 @@ export function Footer() {
         <div className="absolute right-32 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-neutral-300 dark:via-neutral-700 to-transparent opacity-50" />
 
         {/* Concentric circles - Top Left */}
-        <div className="absolute -left-20 -top-20 w-40 h-40 opacity-10">
+        <div className="absolute -left-20 -top-20 w-40 h-40 opacity-30">
           <svg className="w-full h-full" viewBox="0 0 100 100">
             {[20, 40, 60, 80, 100].map((r, i) => (
               <circle
@@ -99,7 +99,7 @@ export function Footer() {
         </div>
 
         {/* Concentric circles - Bottom Right */}
-        <div className="absolute -right-20 -bottom-20 w-40 h-40 opacity-10">
+        <div className="absolute -right-20 -bottom-20 w-40 h-40 opacity-30">
           <svg className="w-full h-full" viewBox="0 0 100 100">
             {[20, 40, 60, 80, 100].map((r, i) => (
               <circle

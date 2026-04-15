@@ -1,16 +1,10 @@
 // packages/worker/src/aiService.ts
-import { getYoutubeVideoId } from "./utils/youtube";
-import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 import {
     GoogleGenAI,
-    createUserContent,
     createPartFromUri,
+    createUserContent,
 } from "@google/genai";
 import { extractJsonObject } from "./utils/json";
-import axios from "axios";
-import fs from "fs";
-import path from "path";
-import { createStreamingJsonParser } from "./utils/streaming-json-parser";
 
 require('dotenv').config();
 
@@ -87,7 +81,7 @@ BROKEN JSON:
 ${brokenJson}
 
 CORRECTED JSON:`;
-    const result = await ai.models.generateContent({ model: "gemini-2.5-flash-lite", contents: prompt });
+    const result = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: prompt });
 
     return result.text!;
 };
@@ -130,7 +124,22 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
             - Keep each tweet concise and under 280 characters.
             - Be numbered (1/, 2/, 3/).
             - End with a strong call-to-action and 3-4 high-traffic hashtags.
-        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime", "endTime", and "wordEvents" with word-level timestamps for captions. Each object in this array must have unique keys. Do not repeat keys like "summary" or "startTime".
+            -   End with a strong call-to-action and 3-4 high-traffic hashtags.
+        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime" (number, in seconds), "endTime" (number, in seconds), and "wordEvents" with word-level timestamps for captions. Each object in this array must have unique keys. Do not repeat keys like "summary" or "startTime".
+
+        Example of "viralMoments" structure:
+        "viralMoments": [
+            {
+                "title": "Clip Title",
+                "summary": "Clip Summary",
+                "startTime": 10.5,
+                "endTime": 25.0,
+                "wordEvents": [
+                    { "word": "Hello", "start": 10.5, "end": 10.9 },
+                    { "word": "world", "start": 10.9, "end": 11.2 }
+                ]
+            }
+        ]
 
         Your entire output must be a single, valid JSON object with the keys listed above.
         CRITICAL: Your entire response must be ONLY the valid JSON object, starting with { and ending with }. Do not include any other text, explanations, or markdown formatting like \`\`\`json before or after the object.
@@ -140,26 +149,20 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
     // let promptParts: Part[] = [];
     let contents;
 
-    if (source.includes("youtube.com") || source.includes("youtu.be")) {
-        contents = createUserContent([
-            prompt,
-            `Here is the YouTube link: ${source}`,
-        ]);
-    } else {
-        const myfile = await uploadAndWait(source, "video/mp4");
-        contents = createUserContent([
-            createPartFromUri(myfile.uri!, myfile.mimeType!),
-            prompt,
-        ]);
-    }
+    const myfile = await uploadAndWait(source, "video/mp4");
+    contents = createUserContent([
+        createPartFromUri(myfile.uri!, myfile.mimeType!),
+        prompt,
+    ]);
     try {
-        const result = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: contents });
+        const result = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: contents });
         let text = result.text;
         const rawResponseText = extractFirstJsonObject(text!);
         let cleanJsonString: string;
 
         try {
             cleanJsonString = extractJsonObject(rawResponseText);
+            console.log("[🔍] Raw AI JSON String:", cleanJsonString);
         } catch (error) {
             console.error("Could not extract any JSON object from the AI response.", error);
             throw new Error("AI response did not contain a recognizable JSON object.");

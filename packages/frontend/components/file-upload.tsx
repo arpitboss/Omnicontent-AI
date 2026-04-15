@@ -1,8 +1,8 @@
-import React, { useCallback, useState, useRef } from 'react';
-import { Upload, File, X, Check, AlertCircle, Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { AlertCircle, Check, File, Pause, Play, Upload, X } from 'lucide-react';
+import React, { useCallback, useRef, useState } from 'react';
 
 interface FileUploadProps {
   onFileChange: (file: File | null) => void;
@@ -54,7 +54,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const handleFileUpload = async (file: File) => {
     // Validate file size
     if (file.size > maxSize * 1024 * 1024) {
-      setUploadError(`File size must be less than ${ maxSize } MB`);
+      setUploadError(`File size must be less than ${maxSize} MB`);
       return;
     }
 
@@ -67,7 +67,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     });
 
     if (!isValidType) {
-      setUploadError(`File type not supported.Please upload: ${ acceptedTypes.join(', ') } `);
+      setUploadError(`File type not supported.Please upload: ${acceptedTypes.join(', ')} `);
       return;
     }
 
@@ -112,12 +112,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
   if (uploadedFile) {
     const FileIcon = getFileIcon();
-    
+
     return (
       <div className={cn("space-y-4", className)}>
         <div className="bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 p-6 relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-1 h-full bg-black dark:bg-white" />
-          
+
           <div className="flex items-start justify-between relative z-10">
             <div className="flex items-center space-x-4 flex-1 min-w-0">
               <div className="flex-shrink-0">
@@ -139,20 +139,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 <p className="text-xs font-mono text-neutral-500 mb-3">
                   {formatFileSize(uploadedFile.size)} • {uploadedFile.type}
                 </p>
-                
+
                 {isUploading && (
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-mono uppercase">
                       <span className="text-neutral-500">Uploading...</span>
                       <span className="font-bold">{uploadProgress}%</span>
                     </div>
-                    <Progress 
-                      value={uploadProgress} 
-                      className="w-full h-1 rounded-none bg-neutral-100 dark:bg-neutral-900" 
+                    <Progress
+                      value={uploadProgress}
+                      className="w-full h-1 rounded-none bg-neutral-100 dark:bg-neutral-900"
                     />
                   </div>
                 )}
-                
+
                 {uploadProgress === 100 && !isUploading && (
                   <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-neutral-900 dark:text-neutral-100">
                     <Check className="w-3 h-3" />
@@ -161,7 +161,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 )}
               </div>
             </div>
-            
+
             <Button
               variant="ghost"
               size="icon"
@@ -188,15 +188,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       <div
         className={cn(
           "relative group cursor-pointer transition-all duration-300 border border-dashed p-12",
-          dragActive 
-            ? "border-black dark:border-white bg-neutral-50 dark:bg-neutral-900" 
+          dragActive
+            ? "border-black dark:border-white bg-neutral-50 dark:bg-neutral-900"
             : "border-neutral-300 dark:border-neutral-700 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900"
         )}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
@@ -205,12 +204,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           onChange={handleChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        
+
         <div className="text-center space-y-6">
           <div className="mx-auto w-16 h-16 bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-neutral-200 dark:border-neutral-800">
             <Upload className="w-8 h-8 text-neutral-500 group-hover:text-black dark:group-hover:text-white transition-colors" />
           </div>
-          
+
           <div className="space-y-2">
             <h3 className="text-lg font-bold uppercase tracking-widest text-neutral-900 dark:text-neutral-100">
               Drop files here
