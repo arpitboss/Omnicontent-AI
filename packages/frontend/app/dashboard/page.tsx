@@ -112,6 +112,15 @@ interface Content {
   createdAt: string;
 }
 
+interface TranslationData {
+  summary?: string;
+  blog?: string;
+  linkedin?: string;
+  twitter?: string[];
+  transcript?: string;
+  language?: string;
+}
+
 // ---------------- Utils ----------------
 const fetcher = async (url: string, getToken: () => Promise<string | null>) => {
   const token = await getToken();
@@ -222,7 +231,7 @@ const ContentDisplayCard = ({
   onDownload: (contentId: string, clip: Clip, aspectRatio: string) => void;
   onTranslateOpen: (contentId: string) => void;
   onExport: () => void;
-  translationCache: { [key: string]: unknown };
+  translationCache: { [key: string]: TranslationData };
   showTranslation: boolean;
   setShowTranslation: (val: boolean) => void;
 }) => {
@@ -863,7 +872,7 @@ export default function DashboardPage() {
   const [isTranslateDialogOpen, setIsTranslateDialogOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState("");
-  const [translationCache, setTranslationCache] = useState<{ [key: string]: unknown }>({});
+  const [translationCache, setTranslationCache] = useState<{ [key: string]: TranslationData }>({});
   const [showTranslationMap, setShowTranslationMap] = useState<{ [key: string]: boolean }>({});
   const [currentContentId, setCurrentContentId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
