@@ -139,9 +139,17 @@ const startWorker = async () => {
 
                         console.log(`[🔽] Caching source video for ${contentId}...`);
                         const cleanUrl = url.trim();
-                        // Use default format selection (bestvideo+bestaudio/best) to avoid "format not available" errors.
-                        // This might require ffmpeg for merging, but we need ffmpeg anyway for processing.
-                        const command = `yt-dlp --js-runtimes nodejs --force-ipv4 --extractor-args "youtube:player_client=ios" -o "${finalSourcePath}" "${cleanUrl}"`;
+                        let cookiesArg = '';
+                        if (process.env.YOUTUBE_COOKIES) {
+                            const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
+                            require('fs').writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
+                            cookiesArg = `--cookies "${cookiesPath}"`;
+                            console.log(`[🍪] Loaded YouTube cookies from environment.`);
+                        } else {
+                            console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
+                        }
+
+                        const command = `yt-dlp --js-runtimes node --force-ipv4 ${cookiesArg} --extractor-args "youtube:player_client=android,ios" --compat-options no-youtube-unavailable-videos -o "${finalSourcePath}" "${cleanUrl}"`;
                         console.log(`[▶️] Executing: ${command}`);
 
                         try {
