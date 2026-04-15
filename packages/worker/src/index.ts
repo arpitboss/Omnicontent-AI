@@ -140,16 +140,19 @@ const startWorker = async () => {
                         console.log(`[🔽] Caching source video for ${contentId}...`);
                         const cleanUrl = url.trim();
                         let cookiesArg = '';
+                        let clientArg = '--extractor-args "youtube:player_client=android,ios" --compat-options no-youtube-unavailable-videos';
+                        
                         if (process.env.YOUTUBE_COOKIES) {
                             const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
                             require('fs').writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
                             cookiesArg = `--cookies "${cookiesPath}"`;
+                            clientArg = ''; // Mobile clients skip cookies, so we let it use default web client!
                             console.log(`[🍪] Loaded YouTube cookies from environment.`);
                         } else {
                             console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
                         }
 
-                        const command = `yt-dlp --js-runtimes node --force-ipv4 ${cookiesArg} --extractor-args "youtube:player_client=android,ios" --compat-options no-youtube-unavailable-videos -o "${finalSourcePath}" "${cleanUrl}"`;
+                        const command = `yt-dlp --js-runtimes node --force-ipv4 ${cookiesArg} ${clientArg} -o "${finalSourcePath}" "${cleanUrl}"`;
                         console.log(`[▶️] Executing: ${command}`);
 
                         try {
