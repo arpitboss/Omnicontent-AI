@@ -103,7 +103,13 @@ const startWorker = async () => {
     console.log('Worker connected to MongoDB.');
     try {
         const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost?heartbeat=60';
+        console.log(`[⏳] Connecting to RabbitMQ...`);
         const connection = await amqplib.connect(rabbitMqUrl);
+        console.log(`[✅] Worker connected to RabbitMQ!`);
+        
+        connection.on("error", (err) => console.error("RabbitMQ Connection Error:", err));
+        connection.on("close", () => console.error("RabbitMQ Connection Closed"));
+
         const channel = await connection.createChannel();
         const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
@@ -135,7 +141,7 @@ const startWorker = async () => {
                         const cleanUrl = url.trim();
                         // Use default format selection (bestvideo+bestaudio/best) to avoid "format not available" errors.
                         // This might require ffmpeg for merging, but we need ffmpeg anyway for processing.
-                        const command = `yt-dlp -o "${finalSourcePath}" "${cleanUrl}"`;
+                        const command = `yt-dlp --js-runtimes nodejs --force-ipv4 --extractor-args "youtube:player_client=ios" -o "${finalSourcePath}" "${cleanUrl}"`;
                         console.log(`[▶️] Executing: ${command}`);
 
                         try {
@@ -273,6 +279,9 @@ const startWorker = async () => {
         // WORKER 3: Fast On-Demand Reformatting (Listens to 'reformatting_jobs')
         const reformatQueue = 'reformatting_jobs';
         await channel.assertQueue(reformatQueue, { durable: true });
+        
+        console.log(`[🚀] Worker successfully fully initialized and listening on all queues!`);
+        
         channel.consume(reformatQueue, async (msg) => {
             if (msg) {
                 channel.ack(msg);
