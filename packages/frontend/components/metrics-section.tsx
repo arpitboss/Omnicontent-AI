@@ -20,7 +20,7 @@ export function MetricsSection() {
                             <span className="text-neutral-400 dark:text-neutral-600">Content Dominance.</span>
                         </h2>
                         <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-lg leading-relaxed">
-                            Our neural engine doesn't just create content; it optimizes for engagement, retention, and viral potential across every major platform.
+                            Our neural engine doesn&apos;t just create content; it optimizes for engagement, retention, and viral potential across every major platform.
                         </p>
 
                         {/* Key Metrics Grid */}

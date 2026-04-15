@@ -45,7 +45,7 @@ export function TestimonialsSection() {
         </div>
         <h2 className="text-4xl md:text-5xl font-bold tracking-tighter max-w-2xl">
           Trusted by the <br />
-          <span className="text-neutral-400 dark:text-neutral-600">World's Best Teams.</span>
+          <span className="text-neutral-400 dark:text-neutral-600">World&apos;s Best Teams.</span>
         </h2>
       </div>
       <BentoGrid className="max-w-7xl mx-auto px-6">
@@ -59,7 +59,7 @@ export function TestimonialsSection() {
             className={item.className}
           >
             <div className="mt-4 text-sm font-light italic text-neutral-600 dark:text-neutral-300 leading-relaxed">
-              "{item.quote}"
+              &quot;{item.quote}&quot;
             </div>
           </BentoGridItem>
         ))}
@@ -192,7 +192,7 @@ const TestimonialVisual4 = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          "
+          &quot;
         </motion.div>
 
         {/* Quote lines */}

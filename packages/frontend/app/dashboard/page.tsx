@@ -222,7 +222,7 @@ const ContentDisplayCard = ({
   onDownload: (contentId: string, clip: Clip, aspectRatio: string) => void;
   onTranslateOpen: (contentId: string) => void;
   onExport: () => void;
-  translationCache: { [key: string]: any };
+  translationCache: { [key: string]: unknown };
   showTranslation: boolean;
   setShowTranslation: (val: boolean) => void;
 }) => {
@@ -863,7 +863,7 @@ export default function DashboardPage() {
   const [isTranslateDialogOpen, setIsTranslateDialogOpen] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState("");
-  const [translationCache, setTranslationCache] = useState<{ [key: string]: any }>({});
+  const [translationCache, setTranslationCache] = useState<{ [key: string]: unknown }>({});
   const [showTranslationMap, setShowTranslationMap] = useState<{ [key: string]: boolean }>({});
   const [currentContentId, setCurrentContentId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);

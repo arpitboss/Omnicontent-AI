@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 
-const ShimmerBlock = ({ className, ...props }: { className?: string } & any) => (
+const ShimmerBlock = ({ className, ...props }: { className?: string } & Record<string, unknown>) => (
     <motion.div
         className={`bg-neutral-200 dark:bg-neutral-800 rounded-sm ${className}`}
         animate={{ opacity: [0.5, 1, 0.5] }}
