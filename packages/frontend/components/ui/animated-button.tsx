@@ -1,8 +1,8 @@
-import { Button, ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { forwardRef } from "react";
 
-export interface AnimatedButtonProps extends ButtonProps {
+export interface AnimatedButtonProps extends React.ComponentProps<typeof Button> {
   animation?: "shine" | "glow" | "float" | "scale" | "shimmer";
   glowColor?: string;
 }

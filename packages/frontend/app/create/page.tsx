@@ -24,7 +24,7 @@ export default function Create() {
   const [timeframeStart, setTimeframeStart] = useState("");
   const [timeframeEnd, setTimeframeEnd] = useState("");
   const [activeTab, setActiveTab] = useState("url");
-  const [result, setResult] = useState<string | null>(null);
+  const [, setResult] = useState<string | null>(null);
   const [captionStyle, setCaptionStyle] = useState("default");
   const { getToken } = useAuth();
   const router = useRouter();

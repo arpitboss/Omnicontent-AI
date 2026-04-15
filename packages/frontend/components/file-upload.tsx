@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { AlertCircle, Check, File, Pause, Play, Upload, X } from 'lucide-react';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 interface FileUploadProps {
   onFileChange: (file: File | null) => void;
@@ -24,7 +24,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
+  const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === 'dragenter' || e.type === 'dragover') {
@@ -32,9 +32,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
-  }, []);
+  };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -42,14 +42,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileUpload(e.dataTransfer.files[0]);
     }
-  }, []);
+  };
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (e.target.files && e.target.files[0]) {
       handleFileUpload(e.target.files[0]);
     }
-  }, []);
+  };
 
   const handleFileUpload = async (file: File) => {
     // Validate file size

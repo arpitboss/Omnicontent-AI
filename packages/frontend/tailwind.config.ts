@@ -135,7 +135,7 @@ export default {
   plugins: [
     require("tailwindcss-animate"),
     require("@tailwindcss/typography"),
-    function ({ addUtilities }) {
+    function ({ addUtilities }: any) {
       const newUtilities = {
         '.text-shadow': {
           textShadow: '0 2px 4px rgba(0,0,0,0.1)',

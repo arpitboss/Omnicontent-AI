@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -141,6 +141,7 @@ const BlogImageRenderer = ({ src }: { src: string }) => {
     <>
       <figure className="my-14 group cursor-zoom-in" onClick={() => setIsZoomed(true)}>
         <div className="overflow-hidden rounded-md shadow-sm relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={imageUrl}
             alt={searchTerm}
@@ -406,6 +407,7 @@ const ContentDisplayCard = ({
                   >
                     {/* Hero Image */}
                     <div className="mb-12 relative aspect-video w-full overflow-hidden rounded-md shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`https://image.pollinations.ai/prompt/${encodeURIComponent((content.generatedTitle || "abstract") + " cinematic, photorealistic, 4k, dramatic lighting, no text")}?width=1280&height=720&nologo=true`}
                         alt="Article Hero"
@@ -439,10 +441,11 @@ const ContentDisplayCard = ({
                       <TypewriterText
                         id={`${content._id}-article-${showTranslation ? 'translated' : 'original'}`}
                         components={{
-                          p: ({ node, ...props }) => {
+                          p: ({ ...props }) => {
+                            const children = (props as { children?: { type: string, value: string }[] }).children;
                             const text =
-                              node?.children[0]?.type === "text"
-                                ? node.children[0].value
+                              children?.[0]?.type === "text"
+                                ? children[0].value
                                 : "";
                             if (text.startsWith("[Image:")) {
                               return <BlogImageRenderer src={text} />;
@@ -454,37 +457,37 @@ const ContentDisplayCard = ({
                               </ScrollReveal>
                             );
                           },
-                          h1: ({ node, ...props }) => (
+                          h1: ({ ...props }) => (
                             <ScrollReveal>
                               <h1 {...props} className="font-sans font-bold text-3xl md:text-4xl mb-8 mt-16 text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight" />
                             </ScrollReveal>
                           ),
-                          h2: ({ node, ...props }) => (
+                          h2: ({ ...props }) => (
                             <ScrollReveal>
                               <h2 {...props} className="font-sans font-bold text-2xl md:text-3xl mb-6 mt-14 text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight" />
                             </ScrollReveal>
                           ),
-                          h3: ({ node, ...props }) => (
+                          h3: ({ ...props }) => (
                             <ScrollReveal>
                               <h3 {...props} className="font-sans font-bold text-xl md:text-2xl mb-4 mt-12 text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight" />
                             </ScrollReveal>
                           ),
-                          blockquote: ({ node, ...props }) => (
+                          blockquote: ({ ...props }) => (
                             <ScrollReveal>
                               <blockquote {...props} className="border-l-[3px] border-neutral-900 dark:border-neutral-100 pl-6 italic text-[22px] leading-relaxed text-neutral-700 dark:text-neutral-300 my-14 font-serif" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
                             </ScrollReveal>
                           ),
-                          ul: ({ node, ...props }) => (
+                          ul: ({ ...props }) => (
                             <ScrollReveal>
                               <ul {...props} className="list-disc pl-6 mb-10 space-y-3 font-serif text-[20px] leading-[32px] text-neutral-800 dark:text-neutral-200" />
                             </ScrollReveal>
                           ),
-                          ol: ({ node, ...props }) => (
+                          ol: ({ ...props }) => (
                             <ScrollReveal>
                               <ol {...props} className="list-decimal pl-6 mb-10 space-y-3 font-serif text-[20px] leading-[32px] text-neutral-800 dark:text-neutral-200" />
                             </ScrollReveal>
                           ),
-                          li: ({ node, ...props }) => <li {...props} className="pl-2" />,
+                          li: ({ ...props }) => <li {...props} className="pl-2" />,
                         }}
                         text={
                           showTranslation && currentTranslation?.blog
@@ -859,8 +862,8 @@ const ContentDisplayCard = ({
 };
 
 export default function DashboardPage() {
-  const { user } = useUser();
-  const plan = (user?.publicMetadata?.plan as "pro" | "free") || "free";
+  // Plan unused, removing to fix lint
+  // Plan unused, removing to fix lint
 
   const { getToken, userId } = useAuth();
   const { data: contents, error, isLoading, mutate } = useSWR<Content[]>(
@@ -983,7 +986,7 @@ export default function DashboardPage() {
         localStorage.setItem(`translationCache_${userId}`, JSON.stringify(updatedCache));
       }
       toast('Translation Successful');
-    } catch (error) {
+    } catch {
       toast('Translation Failed');
     } finally {
       setIsTranslating(false);

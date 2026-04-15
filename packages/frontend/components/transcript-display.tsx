@@ -24,7 +24,7 @@ export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
   onShowOriginal
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [, setCopied] = useState(false);
 
   const isTranslated = !!translatedText;
   const linesToDisplay = isTranslated
