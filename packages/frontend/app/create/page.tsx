@@ -51,7 +51,7 @@ export default function Create() {
     setResult(null);
     try {
       const token = await getToken();
-      const response = await fetch("http://localhost:8080/api/v1/content/atomize", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/content/atomize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,7 +85,7 @@ export default function Create() {
       formData.append("timeframeStart", options.timeframe.start);
       formData.append("timeframeEnd", options.timeframe.end);
 
-      const response = await fetch("http://localhost:8080/api/v1/content/atomize-file", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/content/atomize-file`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

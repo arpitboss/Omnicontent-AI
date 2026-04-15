@@ -281,7 +281,7 @@ const ContentDisplayCard = ({
           </h3>
           <p className="text-sm text-neutral-500 font-mono flex items-center">
             <span className="w-2 h-2 bg-neutral-300 dark:bg-neutral-700 rounded-full mr-2 group-hover:bg-emerald-500 transition-colors" />
-            SOURCE: <a href={`http://localhost:8080/api/v1/content/${content._id}/${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
+            SOURCE: <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${content._id}/${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
           </p>
         </div>
 
@@ -326,7 +326,7 @@ const ContentDisplayCard = ({
           <div className="aspect-video overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-black relative">
             <div className="absolute inset-0 bg-grid-white/[0.05] pointer-events-none" />
             <ReactPlayer
-              src={`http://localhost:8080/api/v1/content/${content._id}/${content.sourceUrl}`}
+              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${content._id}/${content.sourceUrl}`}
               width="100%"
               height="100%"
               controls
@@ -855,7 +855,7 @@ export default function DashboardPage() {
 
   const { getToken, userId } = useAuth();
   const { data: contents, error, isLoading, mutate } = useSWR<Content[]>(
-    "http://localhost:8080/api/v1/content",
+    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content`,
     (url) => fetcher(url, getToken),
     { refreshInterval: 5000 }
   );
@@ -898,7 +898,7 @@ export default function DashboardPage() {
   // ---- Socket for reformat events ----
   useEffect(() => {
     if (!userId) return;
-    const socket: Socket = io('http://localhost:8080');
+    const socket: Socket = io((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'));
     socket.emit('join_room', userId);
 
     const handleReformatComplete = () => mutate();
@@ -920,7 +920,7 @@ export default function DashboardPage() {
 
   const handleDownload = async (contentId: string, clip: Clip, aspectRatio: string) => {
     const token = await getToken();
-    const res = await fetch(`http://localhost:8080/api/v1/content/${contentId}/clips/${clip._id}/reformat`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}/clips/${clip._id}/reformat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ aspectRatio }),
@@ -943,7 +943,7 @@ export default function DashboardPage() {
     try {
       const translate = async (text: string) => {
         if (!text) return '';
-        const res = await fetch('http://localhost:8080/api/v1/content/translate', {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ text, targetLanguage }),
@@ -986,7 +986,7 @@ export default function DashboardPage() {
     const token = await getToken();
     try {
       const res = await fetch(
-        `http://localhost:8080/api/v1/content/${contentId}/export-all`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}/export-all`,
         {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
