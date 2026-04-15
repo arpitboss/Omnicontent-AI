@@ -146,8 +146,8 @@ const startWorker = async () => {
                             const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
                             require('fs').writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
                             cookiesArg = `--cookies "${cookiesPath}"`;
-                            clientArg = ''; // Mobile clients skip cookies, so we let it use default web client!
-                            console.log(`[🍪] Loaded YouTube cookies from environment.`);
+                            clientArg = '--extractor-args "youtube:player_client=tv,mweb,web"'; // TV and mweb support cookies and bypass extreme JS challenges
+                            console.log(`[🍪] Loaded YouTube cookies from environment. Switched to TV/MWEB clients to bypass n-sig JS challenges.`);
                         } else {
                             console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
                         }
