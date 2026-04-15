@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.31.9",
+    "@clerk/nextjs": "^6.32.0",
     "@clerk/themes": "^2.4.19",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -49,7 +49,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.539.0",
     "motion": "^12.23.24",
-    "next": "^16.2.3",
+    "next": "^15.5.15",
     "next-themes": "^0.4.6",
     "react": "19.1.0",
     "react-day-picker": "^9.9.0",
@@ -70,12 +70,14 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "^16.2.3",
+    "eslint-config-next": "^15.5.15",
     "tailwindcss": "^4",
+    "tailwindcss-animate": "^1.0.7",
     "tw-animate-css": "^1.3.6",
     "typescript": "^5"
   }
