@@ -84,6 +84,7 @@ export default function Create() {
       formData.append("enableCaptions", String(options.enableCaptions));
       formData.append("timeframeStart", options.timeframe.start);
       formData.append("timeframeEnd", options.timeframe.end);
+      formData.append("captionStyle", options.captionStyle);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/content/atomize-file`, {
         method: "POST",

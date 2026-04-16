@@ -28,22 +28,19 @@ const apiKey: string = process.env.GEMINI_API_KEY || "";
 if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set in environment variables.");
 }
-// const ai = new GoogleGenerativeAI(apiKey);
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
 // Model is configurable via env var so you can switch from Render dashboard without redeploying
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
+// Fallback model chain: if the primary model is rate-limited or down, try the next one automatically.
+const MODEL_FALLBACK_CHAIN = [
+    PRIMARY_MODEL,
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-3-flash',
+].filter((model, index, self) => self.indexOf(model) === index); // Deduplicate
 
-function cleanAIJson(text: string): string {
-    // Remove code fences
-    text = text.replace(/```json\s*([\s\S]*?)```/i, '$1').replace(/```[\s\S]*?```/g, '').trim();
-    // Remove trailing commas before } or ]
-    text = text.replace(/,\s*([}\]])/g, '$1');
-    // Replace smart quotes with regular quotes
-    text = text.replace(/[\u2018\u2019\u201C\u201D]/g, '"');
-    return text;
-}
 
 function extractFirstJsonObject(text: string): string {
     const match = text.match(/{[\s\S]*}/);
@@ -68,15 +65,42 @@ async function uploadAndWait(filePath: string, mimeType: string) {
 }
 
 /**
+ * Attempts to generate content with automatic model failover.
+ * If the primary model returns 429/503/overloaded, it cascades to the next fallback model.
+ */
+async function generateWithFailover(contents: any): Promise<{ text: string; modelUsed: string }> {
+    for (let i = 0; i < MODEL_FALLBACK_CHAIN.length; i++) {
+        const model = MODEL_FALLBACK_CHAIN[i];
+        try {
+            console.log(`[🤖] Attempting model: ${model} (${i + 1}/${MODEL_FALLBACK_CHAIN.length})`);
+            const result = await ai.models.generateContent({ model, contents });
+            console.log(`[✅] Model ${model} succeeded.`);
+            return { text: result.text!, modelUsed: model };
+        } catch (error: any) {
+            const status = error?.status || error?.code;
+            const isRetryable = status === 429 || status === 503 ||
+                                error?.message?.includes('RESOURCE_EXHAUSTED') ||
+                                error?.message?.includes('overloaded') ||
+                                error?.message?.includes('unavailable');
+
+            if (isRetryable && i < MODEL_FALLBACK_CHAIN.length - 1) {
+                console.warn(`[⚠️] Model ${model} failed (${status || 'unknown'}). Falling back to next model...`);
+                await sleep(2000);
+                continue;
+            }
+
+            console.error(`[❌] Model ${model} failed fatally:`, error.message || error);
+            throw error;
+        }
+    }
+    throw new Error('All models in the failover chain failed.');
+}
+
+/**
  * Attempts to repair a broken JSON string using a fast AI model.
- * @param brokenJson The potentially malformed JSON string.
- * @returns A string of the repaired JSON.
  */
 const repairJsonWithAi = async (brokenJson: string): Promise<string> => {
     console.warn('[⚠️] Malformed JSON detected. Attempting AI-powered repair...');
-
-    // Use a fast and cheap model for this simple task
-    // const repairModel = ai.models.get({ model: "gemini-2.5-flash-lite", });
 
     const prompt = `The following text is supposed to be a single, valid JSON object, but it contains a syntax error. Please analyze the text, fix the error (e.g., missing commas, unescaped quotes, trailing commas), and return ONLY the corrected, valid JSON object. Do not add any new data or explanations.
 
@@ -84,24 +108,25 @@ BROKEN JSON:
 ${brokenJson}
 
 CORRECTED JSON:`;
-    const result = await ai.models.generateContent({ model: GEMINI_MODEL, contents: prompt });
-
-    return result.text!;
+    // Use the lightest model for repair to avoid burning quota
+    try {
+        const result = await ai.models.generateContent({ model: 'gemini-2.5-flash-lite', contents: prompt });
+        return result.text!;
+    } catch {
+        const { text } = await generateWithFailover(prompt);
+        return text;
+    }
 };
 
 
 export const atomizeVideoContent = async (source: string, options: any): Promise<AtomizationResult> => {
     console.log(`[🤖] Starting AI analysis with options:`, options);
+    console.log(`[🤖] Model failover chain: ${MODEL_FALLBACK_CHAIN.join(' → ')}`);
 
     let timeframeConstraint = "";
     if (options.timeframe?.start && options.timeframe?.end) {
         timeframeConstraint = `CRITICAL: You must only analyze the video content between the timestamps ${options.timeframe.start} and ${options.timeframe.end}. All generated clips and content must come from this specific segment.`;
     }
-
-    // Gemini API can work with YouTube URLs, but let's provide it in a structured way
-    // const videoId = getYoutubeVideoId(url);
-    // if (!videoId) throw new Error("Invalid YouTube URL");
-    // const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
     const prompt = `
         You are an A-list content strategist for top creators and brands. Your work is viral, professional, and has immense value. Analyze the provided video and deconstruct it into the following assets, formatted as a single, valid JSON object.
@@ -127,8 +152,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
             - Keep each tweet concise and under 280 characters.
             - Be numbered (1/, 2/, 3/).
             - End with a strong call-to-action and 3-4 high-traffic hashtags.
-            -   End with a strong call-to-action and 3-4 high-traffic hashtags.
-        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime" (number, in seconds), "endTime" (number, in seconds), and "wordEvents" with word-level timestamps for captions. Each object in this array must have unique keys. Do not repeat keys like "summary" or "startTime".
+        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime" (number, in seconds), "endTime" (number, in seconds), and "wordEvents" with word-level timestamps for captions.
 
         Example of "viralMoments" structure:
         "viralMoments": [
@@ -148,8 +172,6 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         CRITICAL: Your entire response must be ONLY the valid JSON object, starting with { and ending with }. Do not include any other text, explanations, or markdown formatting like \`\`\`json before or after the object.
     `;
 
-    // const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-    // let promptParts: Part[] = [];
     let contents;
 
     const myfile = await uploadAndWait(source, "video/mp4");
@@ -158,55 +180,43 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         prompt,
     ]);
     try {
-        console.log(`[🤖] Using model: ${GEMINI_MODEL}`);
-        const result = await ai.models.generateContent({ model: GEMINI_MODEL, contents: contents });
-        let text = result.text;
-        const rawResponseText = extractFirstJsonObject(text!);
+        const { text, modelUsed } = await generateWithFailover(contents);
+        console.log(`[🤖] Content generated successfully using model: ${modelUsed}`);
+        const rawResponseText = extractFirstJsonObject(text);
         let cleanJsonString: string;
 
         try {
             cleanJsonString = extractJsonObject(rawResponseText);
-            console.log("[🔍] Raw AI JSON String:", cleanJsonString);
+            console.log("[🔍] Extracted AI JSON (first 200 chars):", cleanJsonString.slice(0, 200) + "...");
         } catch (error) {
             console.error("Could not extract any JSON object from the AI response.", error);
             throw new Error("AI response did not contain a recognizable JSON object.");
         }
 
         try {
-            // First attempt to parse the cleaned string
             const parsedResult: AtomizationResult = JSON.parse(cleanJsonString);
             console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
-            console.log(parsedResult);
             return parsedResult;
         } catch (error) {
-            // If the first parse fails, trigger the self-healing mechanism
             console.error("Initial JSON.parse failed. Original error:", (error as Error).message);
 
             try {
-                // Attempt to repair the broken JSON using the AI
                 const repairedJsonString = await repairJsonWithAi(cleanJsonString);
-
-                // Clean the repaired string just in case the repair AI added extra text
                 const cleanRepairedJson = extractJsonObject(repairedJsonString);
 
-                // Second and final attempt to parse
                 console.log('[✅] AI repair successful. Parsing repaired JSON.');
                 const parsedResult: AtomizationResult = JSON.parse(cleanRepairedJson);
                 console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
-                console.log(parsedResult);
                 return parsedResult;
             } catch (repairError) {
-                // If the repair or the second parse fails, we give up and fail the job
                 console.error("FATAL: AI-powered JSON repair failed. Final error:", (repairError as Error).message);
-                // Log the original broken JSON for debugging
-                console.error("Original malformed JSON string:", cleanJsonString);
+                console.error("Original malformed JSON string:", cleanJsonString.slice(0, 500));
                 throw new Error("Failed to generate and repair valid JSON from AI response.");
             }
         }
     }
     catch (error) {
         console.error("Error generating content:", error);
-        // Return a default AtomizationResult in case of error
         return {
             blogPostMarkdown: "",
             viralMoments: [],

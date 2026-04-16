@@ -140,31 +140,52 @@ const startWorker = async () => {
 
                         console.log(`[🔽] Caching source video for ${contentId}...`);
                         const cleanUrl = url.trim();
-                        let cookiesArg = '';
-                        
-                        if (process.env.YOUTUBE_COOKIES) {
-                            const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
-                            require('fs').writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
-                            cookiesArg = `--cookies "${cookiesPath}"`;
-                            console.log(`[🍪] Loaded YouTube cookies from environment.`);
-                        } else {
-                            console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
-                        }
-                        
-                        const formatArgs = `-f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4`;
-                        const command = `yt-dlp --js-runtimes node --remote-components ejs:github --force-ipv4 ${cookiesArg} ${formatArgs} --no-playlist -o "${finalSourcePath}" "${cleanUrl}"`;
-                        console.log(`[▶️] Executing: ${command}`);
 
-                        try {
-                            const { stdout, stderr } = await execPromise(command);
-                            console.log(`[✅] Caching complete. Path: ${finalSourcePath}`);
-                            if (stdout) console.log(`[yt-dlp stdout]: ${stdout.slice(0, 200)}...`); // Log first 200 chars
-                        } catch (execError: any) {
-                            console.error(`[❌] yt-dlp failed!`);
-                            console.error(`Command: ${command}`);
-                            console.error(`Error: ${execError.message}`);
-                            if (execError.stderr) console.error(`Stderr: ${execError.stderr}`);
-                            throw new Error(`Failed to download video: ${execError.message}`);
+                        // Detect if URL is a direct download link (Cloudinary/S3) vs YouTube
+                        const isDirectUrl = cleanUrl.includes('cloudinary.com') || 
+                                            cleanUrl.includes('res.cloudinary.com') ||
+                                            cleanUrl.match(/^https?:\/\/.+\.(mp4|webm|mkv|mov)(\?|$)/i);
+
+                        if (isDirectUrl) {
+                            // Direct HTTP download for Cloudinary/uploaded files
+                            const command = `curl -L -o "${finalSourcePath}" "${cleanUrl}"`;
+                            console.log(`[▶️] Downloading from direct URL: ${command}`);
+                            try {
+                                await execPromise(command);
+                                console.log(`[✅] Direct download complete. Path: ${finalSourcePath}`);
+                            } catch (execError: any) {
+                                console.error(`[❌] Direct download failed!`);
+                                console.error(`Error: ${execError.message}`);
+                                throw new Error(`Failed to download video from URL: ${execError.message}`);
+                            }
+                        } else {
+                            // YouTube download via yt-dlp
+                            let cookiesArg = '';
+                            
+                            if (process.env.YOUTUBE_COOKIES) {
+                                const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
+                                require('fs').writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
+                                cookiesArg = `--cookies "${cookiesPath}"`;
+                                console.log(`[🍪] Loaded YouTube cookies from environment.`);
+                            } else {
+                                console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
+                            }
+                            
+                            const formatArgs = `-f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4`;
+                            const command = `yt-dlp --js-runtimes node --remote-components ejs:github --force-ipv4 ${cookiesArg} ${formatArgs} --no-playlist -o "${finalSourcePath}" "${cleanUrl}"`;
+                            console.log(`[▶️] Executing: ${command}`);
+
+                            try {
+                                const { stdout, stderr } = await execPromise(command);
+                                console.log(`[✅] Caching complete. Path: ${finalSourcePath}`);
+                                if (stdout) console.log(`[yt-dlp stdout]: ${stdout.slice(0, 200)}...`);
+                            } catch (execError: any) {
+                                console.error(`[❌] yt-dlp failed!`);
+                                console.error(`Command: ${command}`);
+                                console.error(`Error: ${execError.message}`);
+                                if (execError.stderr) console.error(`Stderr: ${execError.stderr}`);
+                                throw new Error(`Failed to download video: ${execError.message}`);
+                            }
                         }
                     } else {
                         console.log(`[💿] Using pre-uploaded file for ${contentId} at ${finalSourcePath}`);

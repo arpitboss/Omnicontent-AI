@@ -8,7 +8,10 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import Content from '../models/contentModel'; // Import the model
-import { uploadToCloudinary } from '../utils/cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Cloudinary is configured when this module loads via the import side-effect
+import '../utils/cloudinary';
 
 require('dotenv').config();
 
@@ -26,19 +29,12 @@ declare global {
 
 const router = express.Router();
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, path.join(__dirname, '../../public/sources'));
-    },
-    filename: function (req, file, cb) {
-        // Keep original extension
-        const ext = path.extname(file.originalname);
-        const uniqueName = `${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`;
-        cb(null, uniqueName);
-    }
+// Use memory storage instead of disk storage — Render's ephemeral filesystem
+// doesn't have a persistent directory. We upload directly from buffer to Cloudinary.
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max
 });
-
-const upload = multer({ storage: storage });
 
 async function queueJob(payload: any) {
     const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
@@ -58,8 +54,8 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
     try {
         const { url, clipLength, enableCaptions, timeframe, captionStyle } = req.body;
         const userId = req.auth?.userId;
-        const { sessionClaims } = req.auth?.sessionClaims;
-        console.log("Received atomization request:", { url, clipLength, enableCaptions, timeframe, sessionClaims });
+        const sessionClaims = req.auth?.sessionClaims as any;
+        console.log("Received atomization request:", { url, clipLength, enableCaptions, timeframe });
 
         const plan = sessionClaims?.metadata?.plan || 'free';
         const clipLimit = plan === 'pro' ? 6 : 3;
@@ -97,14 +93,27 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
 
     const { clipLength, enableCaptions, timeframeStart, timeframeEnd, captionStyle } = req.body;
     const userId = req.auth?.userId;
-    const { sessionClaims } = req.auth?.sessionClaims;
+    const sessionClaims = req.auth?.sessionClaims as any;
 
     const plan = sessionClaims?.metadata?.plan || 'free';
     const clipLimit = plan === 'pro' ? 6 : 3;
 
     try {
-        const cloudUrl = await uploadToCloudinary(req.file.path, `omnicontent/sources/${path.basename(req.file.path, path.extname(req.file.path))}`, true);
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Clean up local
+        // Upload buffer directly to Cloudinary using a stream
+        const cloudUrl = await new Promise<string>((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { 
+                    resource_type: 'video', 
+                    public_id: `omnicontent/sources/${Date.now()}_${Math.round(Math.random() * 1e9)}`,
+                    overwrite: true 
+                },
+                (error: any, result: any) => {
+                    if (error) reject(error);
+                    else resolve(result.secure_url);
+                }
+            );
+            stream.end(req.file!.buffer);
+        });
 
         const newContent = new Content({
             userId,
