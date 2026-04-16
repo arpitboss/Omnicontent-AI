@@ -230,10 +230,14 @@ const startWorker = async () => {
         // WORKER 2: Slow Video Clip Generation (Listens to 'video_processing_jobs')
         const videoQueue = 'video_processing_jobs';
         await channel.assertQueue(videoQueue, { durable: true });
+
+        // CRITICAL: Process only 1 video at a time to avoid OOM crash on Render free tier (512MB RAM)
+        channel.prefetch(1);
+
         channel.consume(videoQueue, async (msg) => {
             if (msg) {
-                channel.ack(msg);
                 const { contentId, clipId, options } = JSON.parse(msg.content.toString());
+                console.log(`[📹] Processing clip ${clipId} for content ${contentId}...`);
 
                 try {
                     const content = await Content.findById(contentId);
@@ -265,7 +269,9 @@ const startWorker = async () => {
                     );
                     console.log(`[📹] Clip ${clipId} finished processing.`);
 
-                    // After updating, refetch the document to check the status of all clips
+                    // ACK only AFTER successful processing — if worker crashes, message stays in queue
+                    channel.ack(msg);
+
                     // After updating, refetch the document to check the status of all clips
                     const updatedContent = await Content.findById(contentId);
                     const allClipsProcessed = updatedContent?.clips.every(c => c.status === 'READY' || c.status === 'FAILED');
@@ -283,6 +289,8 @@ const startWorker = async () => {
                 } catch (err) {
                     await Content.updateOne({ "clips._id": clipId }, { $set: { "clips.$.status": 'FAILED' } });
                     console.error(`Failed to process video for clip ${clipId}:`, err);
+                    // ACK even on failure so we don't get stuck in an infinite retry loop
+                    channel.ack(msg);
                 }
             }
         });
