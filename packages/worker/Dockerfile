@@ -16,6 +16,10 @@ COPY package*.json ./
 
 RUN npm install
 
+# IMPORTANT: YouTube's recent algorithms verify DOM objects in their encryption puzzle.
+# Installing jsdom globally allows the internal 'node' executor to perfectly solve the n-sig challenge without crashing!
+RUN npm install -g jsdom
+
 COPY . .
 
 RUN npm run build

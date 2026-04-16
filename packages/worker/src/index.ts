@@ -149,8 +149,9 @@ const startWorker = async () => {
                         } else {
                             console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
                         }
-
-                        const command = `yt-dlp --js-runtimes node --force-ipv4 ${cookiesArg} -o "${finalSourcePath}" "${cleanUrl}"`;
+                        
+                        const formatArgs = `-f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4`;
+                        const command = `yt-dlp --js-runtimes node --force-ipv4 ${cookiesArg} ${formatArgs} --no-playlist -o "${finalSourcePath}" "${cleanUrl}"`;
                         console.log(`[▶️] Executing: ${command}`);
 
                         try {
