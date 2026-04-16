@@ -128,14 +128,15 @@ const startWorker = async () => {
                     await Content.findByIdAndUpdate(contentId, { status: 'GENERATING_TEXT' });
 
                     if (url && !localSourcePath) {
-                        finalSourcePath = path.join(__dirname, `../../backend/public/sources/${contentId}_source.mp4`);
+                        const tempDir = path.join('/tmp', 'omnicontent-sources');
 
                         // Ensure directory exists
-                        const sourceDir = path.dirname(finalSourcePath);
-                        if (!existsSync(sourceDir)) {
-                            console.log(`[📁] Creating directory: ${sourceDir}`);
-                            mkdirSync(sourceDir, { recursive: true });
+                        if (!existsSync(tempDir)) {
+                            console.log(`[📁] Creating directory: ${tempDir}`);
+                            mkdirSync(tempDir, { recursive: true });
                         }
+
+                        finalSourcePath = path.join(tempDir, `${contentId}_source.mp4`);
 
                         console.log(`[🔽] Caching source video for ${contentId}...`);
                         const cleanUrl = url.trim();

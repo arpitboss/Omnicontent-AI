@@ -81,7 +81,7 @@ BROKEN JSON:
 ${brokenJson}
 
 CORRECTED JSON:`;
-    const result = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: prompt });
+    const result = await ai.models.generateContent({ model: "gemini-2.0-flash", contents: prompt });
 
     return result.text!;
 };
@@ -155,7 +155,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         prompt,
     ]);
     try {
-        const result = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: contents });
+        const result = await ai.models.generateContent({ model: "gemini-2.0-flash", contents: contents });
         let text = result.text;
         const rawResponseText = extractFirstJsonObject(text!);
         let cleanJsonString: string;
