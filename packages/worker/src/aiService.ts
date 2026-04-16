@@ -31,6 +31,9 @@ if (!apiKey) {
 // const ai = new GoogleGenerativeAI(apiKey);
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
+// Model is configurable via env var so you can switch from Render dashboard without redeploying
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';
+
 
 function cleanAIJson(text: string): string {
     // Remove code fences
@@ -81,7 +84,7 @@ BROKEN JSON:
 ${brokenJson}
 
 CORRECTED JSON:`;
-    const result = await ai.models.generateContent({ model: "gemini-2.0-flash", contents: prompt });
+    const result = await ai.models.generateContent({ model: GEMINI_MODEL, contents: prompt });
 
     return result.text!;
 };
@@ -155,7 +158,8 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         prompt,
     ]);
     try {
-        const result = await ai.models.generateContent({ model: "gemini-2.0-flash", contents: contents });
+        console.log(`[🤖] Using model: ${GEMINI_MODEL}`);
+        const result = await ai.models.generateContent({ model: GEMINI_MODEL, contents: contents });
         let text = result.text;
         const rawResponseText = extractFirstJsonObject(text!);
         let cleanJsonString: string;
