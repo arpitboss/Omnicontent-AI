@@ -7,8 +7,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp using pip (break-system-packages required in Bookworm)
-RUN pip3 install yt-dlp --break-system-packages
+# Install yt-dlp and its mandatory bypass scripts (curl_cffi, brotli, websockets) for n-sig challenges
+RUN pip3 install -U "yt-dlp[default]" --break-system-packages
 
 WORKDIR /usr/src/app
 
