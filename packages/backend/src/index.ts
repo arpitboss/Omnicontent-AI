@@ -16,13 +16,32 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-const io = new Server(server, { cors: { origin: FRONTEND_URL } });
+
+const allowedOrigins = [
+    FRONTEND_URL,
+    "http://localhost:3000",
+];
+
+const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, server-to-server)
+        if (!origin) return callback(null, true);
+        // Allow exact matches from the allowed list
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // Allow any Vercel preview deployment (*.vercel.app)
+        if (origin.endsWith('.vercel.app')) return callback(null, true);
+        console.warn(`[CORS] Blocked request from origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+const io = new Server(server, { cors: corsOptions });
 const PORT = process.env.PORT || 8080;
 
-app.use(cors({
-    origin: FRONTEND_URL, // Allow frontend origin
-    credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(clerkMiddleware());
 
