@@ -32,7 +32,7 @@ if (!apiKey) {
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
 // Model is configurable via env var so you can switch from Render dashboard without redeploying
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 
 function cleanAIJson(text: string): string {
