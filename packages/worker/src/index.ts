@@ -151,7 +151,7 @@ const startWorker = async () => {
                         }
                         
                         const formatArgs = `-f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4`;
-                        const command = `yt-dlp --js-runtimes node --force-ipv4 ${cookiesArg} ${formatArgs} --no-playlist -o "${finalSourcePath}" "${cleanUrl}"`;
+                        const command = `yt-dlp --js-runtimes node --remote-components ejs:github --force-ipv4 ${cookiesArg} ${formatArgs} --no-playlist -o "${finalSourcePath}" "${cleanUrl}"`;
                         console.log(`[▶️] Executing: ${command}`);
 
                         try {
