@@ -1,7 +1,7 @@
 // packages/worker/src/index.ts
 import clerkClient from '@clerk/clerk-sdk-node';
 import amqplib from 'amqplib';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import dotenv from 'dotenv';
 import express from 'express';
 import { existsSync, mkdirSync } from 'fs';
@@ -14,7 +14,34 @@ import { reformatVideoAndAddCaptions } from './services/videoService';
 import { parseTimestampToSeconds } from './utils/time';
 
 dotenv.config();
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
+
+/**
+ * Returns true only for http/https URLs whose hostname is not a private or
+ * link-local address.  Blocks SSRF and non-HTTP schemes.
+ */
+function isAllowedUrl(rawUrl: string): boolean {
+    let parsed: URL;
+    try {
+        parsed = new URL(rawUrl);
+    } catch {
+        return false;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    const privatePatterns = [
+        /^localhost$/,
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[01])\./,
+        /^192\.168\./,
+        /^169\.254\./,    // link-local / AWS metadata
+        /^::1$/,
+        /^0\.0\.0\.0$/,
+        /^fd[0-9a-f]{2}:/i, // IPv6 ULA
+    ];
+    return !privatePatterns.some((re) => re.test(host));
+}
 
 const connectDB = async () => {
     try {
@@ -112,6 +139,14 @@ const startWorker = async () => {
 
         const channel = await connection.createChannel();
         const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+        const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET;
+
+        /** Build headers for internal notify calls, including the shared secret when set. */
+        const buildNotifyHeaders = (): Record<string, string> => {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (INTERNAL_API_SECRET) headers['x-internal-secret'] = INTERNAL_API_SECRET;
+            return headers;
+        };
 
         // WORKER 1: Fast Text & Caching (Listens to 'content_jobs')
         const textQueue = 'content_jobs';
@@ -141,17 +176,22 @@ const startWorker = async () => {
                         console.log(`[🔽] Caching source video for ${contentId}...`);
                         const cleanUrl = url.trim();
 
+                        // Reject non-HTTP(S) schemes and private/internal network addresses (SSRF guard)
+                        if (!isAllowedUrl(cleanUrl)) {
+                            throw new Error(`Blocked download from disallowed or private URL: ${cleanUrl}`);
+                        }
+
                         // Detect if URL is a direct download link (Cloudinary/S3) vs YouTube
                         const isDirectUrl = cleanUrl.includes('cloudinary.com') || 
                                             cleanUrl.includes('res.cloudinary.com') ||
                                             cleanUrl.match(/^https?:\/\/.+\.(mp4|webm|mkv|mov)(\?|$)/i);
 
                         if (isDirectUrl) {
-                            // Direct HTTP download for Cloudinary/uploaded files
-                            const command = `curl -L -o "${finalSourcePath}" "${cleanUrl}"`;
-                            console.log(`[▶️] Downloading from direct URL: ${command}`);
+                            // Direct HTTP download for Cloudinary/uploaded files.
+                            // Use execFile (no shell) to prevent command injection via URL.
+                            console.log(`[▶️] Downloading from direct URL (curl, no shell): ${cleanUrl}`);
                             try {
-                                await execPromise(command);
+                                await execFilePromise('curl', ['-L', '-o', finalSourcePath, cleanUrl]);
                                 console.log(`[✅] Direct download complete. Path: ${finalSourcePath}`);
                             } catch (execError: any) {
                                 console.error(`[❌] Direct download failed!`);
@@ -159,29 +199,39 @@ const startWorker = async () => {
                                 throw new Error(`Failed to download video from URL: ${execError.message}`);
                             }
                         } else {
-                            // YouTube download via yt-dlp
-                            let cookiesArg = '';
-                            
+                            // YouTube download via yt-dlp.
+                            // Build args array (no shell) to prevent command injection via URL.
+                            const ytdlpArgs: string[] = [
+                                '--js-runtimes', 'node',
+                                '--remote-components', 'ejs:github',
+                                '--force-ipv4',
+                            ];
+
                             if (process.env.YOUTUBE_COOKIES) {
                                 const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
                                 require('fs').writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
-                                cookiesArg = `--cookies "${cookiesPath}"`;
+                                ytdlpArgs.push('--cookies', cookiesPath);
                                 console.log(`[🍪] Loaded YouTube cookies from environment.`);
                             } else {
                                 console.log(`[⚠️] YOUTUBE_COOKIES env var not set. If YouTube blocks the download, add a Netscape cookies text to this variable in Render.`);
                             }
-                            
-                            const formatArgs = `-f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --merge-output-format mp4`;
-                            const command = `yt-dlp --js-runtimes node --remote-components ejs:github --force-ipv4 ${cookiesArg} ${formatArgs} --no-playlist -o "${finalSourcePath}" "${cleanUrl}"`;
-                            console.log(`[▶️] Executing: ${command}`);
+
+                            ytdlpArgs.push(
+                                '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                                '--merge-output-format', 'mp4',
+                                '--no-playlist',
+                                '-o', finalSourcePath,
+                                cleanUrl,
+                            );
+
+                            console.log(`[▶️] Executing yt-dlp (no shell) for: ${cleanUrl}`);
 
                             try {
-                                const { stdout, stderr } = await execPromise(command);
+                                const { stdout } = await execFilePromise('yt-dlp', ytdlpArgs);
                                 console.log(`[✅] Caching complete. Path: ${finalSourcePath}`);
                                 if (stdout) console.log(`[yt-dlp stdout]: ${stdout.slice(0, 200)}...`);
                             } catch (execError: any) {
                                 console.error(`[❌] yt-dlp failed!`);
-                                console.error(`Command: ${command}`);
                                 console.error(`Error: ${execError.message}`);
                                 if (execError.stderr) console.error(`Stderr: ${execError.stderr}`);
                                 throw new Error(`Failed to download video: ${execError.message}`);
@@ -358,13 +408,13 @@ const startWorker = async () => {
                     await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'COMPLETE', "reformattedClips.$.url": downloadUrl } });
 
                     await fetch(`${BACKEND_URL}/api/internal/notify`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: buildNotifyHeaders(),
                         body: JSON.stringify({ userId, downloadUrl, reformatJobId }),
                     });
                 } catch (err) {
                     await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'FAILED' } });
                     await fetch(`${BACKEND_URL}/api/internal/notify`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: buildNotifyHeaders(),
                         body: JSON.stringify({ userId, reformatJobId, error: 'Failed to generate video.' }),
                     });
                     console.error(`Reformatting job ${reformatJobId} failed:`, err);

@@ -1,10 +1,10 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { uploadToCloudinary } from '../utils/cloudinary';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 
 type CaptionStyle = 'default' | 'highlight' | 'karaoke';
 
@@ -91,11 +91,20 @@ export const reformatVideoAndAddCaptions = async (options: {
 
     console.log('filter graph: ', filterGraph);
 
-    const ffmpegCommand = `ffmpeg -ss ${startTime} -i "${sourceVideoPath}" -t ${duration} -vf "${filterGraph}" -preset ultrafast -c:a aac "${finalClipPath}" -y`;
+    const ffmpegArgs = [
+        '-ss', String(startTime),
+        '-i', sourceVideoPath,
+        '-t', String(duration),
+        '-vf', filterGraph,
+        '-preset', 'ultrafast',
+        '-c:a', 'aac',
+        finalClipPath,
+        '-y',
+    ];
 
     try {
         console.log(`[🔄] Clipping and reformatting to ${aspectRatio}...`);
-        await execPromise(ffmpegCommand);
+        await execFilePromise('ffmpeg', ffmpegArgs);
 
         console.log(`[📤] Uploading clipped video to Cloudinary...`);
         const publicUrl = await uploadToCloudinary(finalClipPath, `omnicontent/clips/${outputFileName}`, true);
@@ -104,7 +113,7 @@ export const reformatVideoAndAddCaptions = async (options: {
         return publicUrl;
     } catch (error: any) {
         console.error("--- FFMPEG PROCESSING FAILED ---");
-        console.error("Command:", ffmpegCommand);
+        console.error("Args:", ffmpegArgs.join(' '));
         console.error("Error details:", error.message);
         if (error.stderr) console.error("FFmpeg stderr:", error.stderr);
         throw new Error(`FFmpeg failed to process the video clip: ${error.message}`);

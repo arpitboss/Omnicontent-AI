@@ -29,6 +29,18 @@ declare global {
 
 const router = express.Router();
 
+// Allowed MIME types for video uploads
+const ALLOWED_VIDEO_MIME_TYPES = new Set([
+    'video/mp4',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/webm',
+    'video/x-matroska',
+    'video/mpeg',
+    'video/3gpp',
+    'video/x-ms-wmv',
+]);
+
 // Use memory storage instead of disk storage — Render's ephemeral filesystem
 // doesn't have a persistent directory. We upload directly from buffer to Cloudinary.
 const upload = multer({
@@ -45,6 +57,55 @@ async function queueJob(payload: any) {
     channel.sendToQueue(queue, Buffer.from(JSON.stringify(payload)));
     await channel.close();
     await connection.close();
+}
+
+/**
+ * Returns true only for http/https URLs whose hostname is not a private,
+ * loopback, or link-local address.  Rejects file://, data://, etc. and
+ * prevents SSRF against internal network resources.
+ */
+function isAllowedUrl(rawUrl: string): boolean {
+    let parsed: URL;
+    try {
+        parsed = new URL(rawUrl);
+    } catch {
+        return false;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    const privatePatterns = [
+        /^localhost$/,
+        /^127\./,
+        /^10\./,
+        /^172\.(1[6-9]|2[0-9]|3[01])\./,
+        /^192\.168\./,
+        /^169\.254\./,    // link-local / AWS metadata endpoint
+        /^::1$/,
+        /^0\.0\.0\.0$/,
+        /^fd[0-9a-f]{2}:/i, // IPv6 ULA
+    ];
+    return !privatePatterns.some((re) => re.test(host));
+}
+
+/**
+ * Checks the first few bytes (magic numbers) of a buffer to verify it is a
+ * recognised video format, regardless of what the client claims in Content-Type.
+ * Supports MP4/MOV (ISO Base Media), WebM/MKV, AVI (RIFF), and MPEG.
+ */
+function isVideoBuffer(buffer: Buffer): boolean {
+    if (buffer.length < 12) return false;
+    // MP4 / MOV / ISO Base Media: bytes 4–7 == "ftyp"
+    if (buffer.slice(4, 8).toString('ascii') === 'ftyp') return true;
+    // WebM / Matroska: EBML header starts with 0x1A 0x45 0xDF 0xA3
+    if (buffer[0] === 0x1A && buffer[1] === 0x45 && buffer[2] === 0xDF && buffer[3] === 0xA3) return true;
+    // AVI: RIFF container (bytes 0–3 == "RIFF") AND bytes 8–11 == "AVI "
+    // (distinguishes AVI from other RIFF-based formats such as WAV audio)
+    if (buffer.slice(0, 4).toString('ascii') === 'RIFF' &&
+        buffer.slice(8, 12).toString('ascii') === 'AVI ') return true;
+    // MPEG-1/2: bytes 0–2 == 0x00 0x00 0x01, byte 3 == 0xB3 (video) or 0xBA (pack header)
+    if (buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 &&
+        (buffer[3] === 0xB3 || buffer[3] === 0xBA)) return true;
+    return false;
 }
 
 
@@ -65,6 +126,9 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
         }
         if (!url) {
             return res.status(400).json({ message: 'URL is required' });
+        }
+        if (!isAllowedUrl(url)) {
+            return res.status(400).json({ message: 'Invalid or disallowed URL.' });
         }
 
         const newContent = new Content({ userId, sourceUrl: url, status: 'PENDING' });
@@ -89,6 +153,16 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
 router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    if (!ALLOWED_VIDEO_MIME_TYPES.has(req.file.mimetype)) {
+        return res.status(400).json({ message: 'Invalid file type. Only MP4, MOV, WebM, MKV, AVI, MPEG, 3GP, and WMV video files are accepted.' });
+    }
+
+    // Secondary check: validate actual file content via magic bytes so a client
+    // cannot bypass the MIME type check by lying about Content-Type.
+    if (!isVideoBuffer(req.file.buffer)) {
+        return res.status(400).json({ message: 'File content does not match a recognised video format.' });
     }
 
     const { clipLength, enableCaptions, timeframeStart, timeframeEnd, captionStyle } = req.body;
@@ -295,7 +369,10 @@ router.get('/:contentId/:videoId', requireAuth(), async (req: express.Request, r
         if (content.sourceUrl && content.sourceUrl.startsWith('http')) {
             res.redirect(content.sourceUrl);
         } else {
-            res.sendFile(videoId, { root: path.join(__dirname, '../../public/sources') });
+            // Use path.basename() to strip any directory traversal sequences from the
+            // user-supplied videoId parameter before passing it to sendFile.
+            const safeVideoId = path.basename(videoId);
+            res.sendFile(safeVideoId, { root: path.join(__dirname, '../../public/sources') });
         }
     } catch (error) {
         console.error('Failed to fetch content:', error);

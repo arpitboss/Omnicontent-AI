@@ -1,5 +1,6 @@
 // packages/backend/src/index.ts
 import http from 'http';
+import { timingSafeEqual } from 'crypto';
 import { Server } from 'socket.io';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
@@ -57,6 +58,18 @@ io.on('connection', (socket) => {
 });
 
 app.post('/api/internal/notify', express.json(), (req, res) => {
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    const provided = req.headers['x-internal-secret'];
+    if (!internalSecret || typeof provided !== 'string') {
+        return res.sendStatus(403);
+    }
+    // Use constant-time comparison to prevent timing-based secret oracle attacks.
+    const secretBuf = Buffer.from(internalSecret);
+    const providedBuf = Buffer.from(provided);
+    if (secretBuf.length !== providedBuf.length ||
+        !timingSafeEqual(secretBuf, providedBuf)) {
+        return res.sendStatus(403);
+    }
     const { userId, downloadUrl, reformatJobId, error } = req.body;
     if (error) {
         io.to(userId).emit('reformat_failed', { reformatJobId, error });
