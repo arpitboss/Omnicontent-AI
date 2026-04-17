@@ -90,17 +90,21 @@ function isAllowedUrl(rawUrl: string): boolean {
 /**
  * Checks the first few bytes (magic numbers) of a buffer to verify it is a
  * recognised video format, regardless of what the client claims in Content-Type.
- * Supports MP4/MOV (ISO Base Media), WebM/MKV, AVI (RIFF), and MPEG.
+ * Supports MP4/MOV/3GP and all other ISO Base Media variants, WebM/MKV, AVI, and MPEG.
+ * The initial `buffer.length < 12` guard ensures all byte-slice accesses are safe.
  */
 function isVideoBuffer(buffer: Buffer): boolean {
     if (buffer.length < 12) return false;
-    // MP4 / MOV / ISO Base Media: bytes 4–7 == "ftyp"
+    // ISO Base Media (MP4, MOV, 3GP, and other variants): bytes 4–7 == "ftyp".
+    // This accepts all ISO Base Media file format brands; it is not limited to MP4/MOV.
     if (buffer.slice(4, 8).toString('ascii') === 'ftyp') return true;
     // WebM / Matroska: EBML header starts with 0x1A 0x45 0xDF 0xA3
     if (buffer[0] === 0x1A && buffer[1] === 0x45 && buffer[2] === 0xDF && buffer[3] === 0xA3) return true;
     // AVI: RIFF container (bytes 0–3 == "RIFF") AND bytes 8–11 == "AVI "
-    // (distinguishes AVI from other RIFF-based formats such as WAV audio)
-    if (buffer.slice(0, 4).toString('ascii') === 'RIFF' &&
+    // Both slices are within the guaranteed 12-byte minimum checked above.
+    // Checking bytes 8–11 distinguishes AVI from other RIFF-based formats (e.g. WAV audio).
+    if (buffer.length >= 12 &&
+        buffer.slice(0, 4).toString('ascii') === 'RIFF' &&
         buffer.slice(8, 12).toString('ascii') === 'AVI ') return true;
     // MPEG-1/2: bytes 0–2 == 0x00 0x00 0x01, byte 3 == 0xB3 (video) or 0xBA (pack header)
     if (buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 &&

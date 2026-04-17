@@ -14,6 +14,10 @@ import { clerkMiddleware } from '@clerk/express';
 dotenv.config();
 connectDB();
 
+if (!process.env.INTERNAL_API_SECRET) {
+    console.warn('[SECURITY] INTERNAL_API_SECRET is not set. The /api/internal/notify endpoint will reject all requests until this variable is configured.');
+}
+
 const app = express();
 const server = http.createServer(app);
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";

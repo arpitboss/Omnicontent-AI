@@ -16,6 +16,10 @@ import { parseTimestampToSeconds } from './utils/time';
 dotenv.config();
 const execFilePromise = promisify(execFile);
 
+if (!process.env.INTERNAL_API_SECRET) {
+    console.warn('[SECURITY] INTERNAL_API_SECRET is not set. Notify calls to the backend will be rejected with 403 until this variable is configured in both the backend and worker.');
+}
+
 /**
  * Returns true only for http/https URLs whose hostname is not a private or
  * link-local address.  Blocks SSRF and non-HTTP schemes.
