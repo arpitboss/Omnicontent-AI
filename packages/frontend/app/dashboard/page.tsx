@@ -336,7 +336,7 @@ const ContentDisplayCard = ({
           <div className="aspect-video overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-black relative">
             <div className="absolute inset-0 bg-grid-white/[0.05] pointer-events-none" />
             <ReactPlayer
-              src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${content._id}/${content.sourceUrl}`}
+              src={`${content.sourceUrl}`}
               width="100%"
               height="100%"
               controls
