@@ -291,7 +291,7 @@ const ContentDisplayCard = ({
           </h3>
           <p className="text-sm text-neutral-500 font-mono flex items-center">
             <span className="w-2 h-2 bg-neutral-300 dark:bg-neutral-700 rounded-full mr-2 group-hover:bg-emerald-500 transition-colors" />
-            SOURCE: <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${content._id}/${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
+            SOURCE: <a href={`${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
           </p>
         </div>
 
