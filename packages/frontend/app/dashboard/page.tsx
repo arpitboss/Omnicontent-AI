@@ -42,6 +42,7 @@ import {
   AlertCircle,
   ArrowUp,
   BadgeCheck,
+  Clock,
   Download,
   FileText,
   Heart,
@@ -55,7 +56,9 @@ import {
   Send,
   Share,
   ThumbsUp,
+  Trash2,
   X,
+  XCircle,
   Zap
 } from "lucide-react";
 
@@ -128,6 +131,24 @@ const fetcher = async (url: string, getToken: () => Promise<string | null>) => {
   if (!res.ok) throw new Error("An error occurred while fetching the data.");
   return res.json();
 };
+
+// --- Stale job detection ---
+const STALE_JOB_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
+
+function isStaleJob(content: Content): boolean {
+  if (!['PENDING', 'GENERATING_TEXT', 'GENERATING_VIDEOS'].includes(content.status)) return false;
+  const createdAt = new Date(content.createdAt).getTime();
+  return Date.now() - createdAt > STALE_JOB_THRESHOLD_MS;
+}
+
+function formatTimeSince(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ${mins % 60}m ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 // ---------------- Components ----------------
 
@@ -861,6 +882,109 @@ const ContentDisplayCard = ({
   );
 };
 
+// ------------- FailedJobCard ---------------
+const FailedJobCard = ({
+  content,
+  onDelete,
+  isDeleting,
+}: {
+  content: Content;
+  onDelete: (contentId: string) => void;
+  isDeleting: boolean;
+}) => {
+  const isStale = isStaleJob(content);
+  const isFailed = content.status === 'FAILED';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
+      className={`relative border ${
+        isFailed
+          ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20'
+          : 'border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20'
+      } p-6 group transition-all duration-300`}
+    >
+      {/* Corner Markers */}
+      <div className={`absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
+      <div className={`absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
+      <div className={`absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
+      <div className={`absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+            isFailed
+              ? 'bg-red-100 dark:bg-red-900/30'
+              : 'bg-amber-100 dark:bg-amber-900/30'
+          }`}>
+            {isFailed ? (
+              <XCircle className="w-6 h-6 text-red-500" />
+            ) : (
+              <Clock className="w-6 h-6 text-amber-500 animate-pulse" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="mb-1">
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border ${
+                isFailed
+                  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
+                  : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 animate-pulse'
+              }`}>
+                {isFailed ? 'FAILED' : 'POSSIBLY STUCK'}
+              </span>
+              <span className="ml-2 text-xs text-neutral-400 font-mono">
+                Started {formatTimeSince(content.createdAt)}
+              </span>
+            </div>
+            <h3 className="text-lg font-bold tracking-tight mb-1 truncate">
+              {content.generatedTitle || "Processing Data Stream..."}
+            </h3>
+            <p className="text-sm text-neutral-500 font-mono flex items-center truncate">
+              <span className={`w-2 h-2 rounded-full mr-2 ${isFailed ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
+              SOURCE: <a href={content.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1 truncate">{content.sourceUrl}</a>
+            </p>
+            {isFailed && content.errorMessage && (
+              <div className="mt-3 p-3 bg-red-100/50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-sm">
+                <p className="text-xs font-mono text-red-600 dark:text-red-400 flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  <span className="break-all">{content.errorMessage}</span>
+                </p>
+              </div>
+            )}
+            {isStale && !isFailed && (
+              <div className="mt-3 p-3 bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-sm">
+                <p className="text-xs font-mono text-amber-600 dark:text-amber-400">
+                  ⚠ This job has been processing for over 15 minutes. It may have encountered an issue. You can safely dismiss it.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isDeleting}
+          onClick={() => onDelete(content._id)}
+          className={`rounded-none font-mono text-xs uppercase tracking-widest flex-shrink-0 h-10 px-6 transition-all ${
+            isFailed
+              ? 'border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 hover:border-red-500'
+              : 'border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-500'
+          }`}
+        >
+          {isDeleting ? (
+            <><Activity className="w-3 h-3 mr-2 animate-spin" /> Removing...</>
+          ) : (
+            <><Trash2 className="w-3 h-3 mr-2" /> Dismiss Job</>
+          )}
+        </Button>
+      </div>
+    </motion.div>
+  );
+};
+
 export default function DashboardPage() {
   // Plan unused, removing to fix lint
   // Plan unused, removing to fix lint
@@ -879,6 +1003,7 @@ export default function DashboardPage() {
   const [showTranslationMap, setShowTranslationMap] = useState<{ [key: string]: boolean }>({});
   const [currentContentId, setCurrentContentId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // ---- Scroll Listener ----
   useEffect(() => {
@@ -943,6 +1068,35 @@ export default function DashboardPage() {
     }
     toast('Processing Started');
     mutate();
+  };
+
+  const handleDeleteContent = async (contentId: string) => {
+    setDeletingIds(prev => new Set(prev).add(contentId));
+    try {
+      const token = await getToken();
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        toast.error('Failed to remove job');
+        return;
+      }
+      toast.success('Job dismissed successfully');
+      // Remove from local data immediately for instant UI feedback
+      mutate(
+        (current: Content[] | undefined) => current?.filter(c => c._id !== contentId),
+        { revalidate: true }
+      );
+    } catch {
+      toast.error('Failed to remove job');
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(contentId);
+        return next;
+      });
+    }
   };
 
   const handleTranslate = async () => {
@@ -1129,7 +1283,41 @@ export default function DashboardPage() {
             )}
 
             {contents?.map((content) => {
+              // Show FailedJobCard for FAILED jobs or stale (stuck) jobs
+              if (content.status === 'FAILED' || isStaleJob(content)) {
+                return (
+                  <AnimatePresence key={content._id}>
+                    <FailedJobCard
+                      content={content}
+                      onDelete={handleDeleteContent}
+                      isDeleting={deletingIds.has(content._id)}
+                    />
+                  </AnimatePresence>
+                );
+              }
 
+              // Show skeleton/spinner for actively processing (non-stale) jobs
+              if (['PENDING', 'GENERATING_TEXT', 'GENERATING_VIDEOS'].includes(content.status)) {
+                return (
+                  <div key={content._id} className="relative border border-dashed border-amber-300 dark:border-amber-800 bg-white dark:bg-black p-6 transition-all">
+                    <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-amber-400" />
+                    <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-amber-400" />
+                    <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-amber-400" />
+                    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-amber-400" />
+                    <div className="flex items-center gap-4">
+                      <div className="animate-spin rounded-none h-6 w-6 border-2 border-amber-300 border-t-amber-600 dark:border-amber-700 dark:border-t-amber-400"></div>
+                      <div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 animate-pulse">
+                          {content.status.replace(/_/g, ' ')}
+                        </span>
+                        <p className="text-sm text-neutral-500 font-mono mt-2">
+                          Processing your content... Started {formatTimeSince(content.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <TypewriterProvider key={content._id}>

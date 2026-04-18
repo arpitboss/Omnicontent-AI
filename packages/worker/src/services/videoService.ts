@@ -8,6 +8,22 @@ const execPromise = promisify(exec);
 
 type CaptionStyle = 'default' | 'highlight' | 'karaoke';
 
+// --- Security: Input sanitization for shell commands ---
+// Since ffmpeg filter graphs require shell interpretation (exec), we validate inputs instead.
+const SHELL_METACHARACTERS = /[;&|`$(){}!\n\r]/;
+
+function validateFilePath(filePath: string, label: string): void {
+    if (SHELL_METACHARACTERS.test(filePath)) {
+        throw new Error(`[Security] Invalid characters in ${label}: ${filePath}`);
+    }
+}
+
+function validateNumber(value: number, label: string): void {
+    if (!Number.isFinite(value) || value < 0) {
+        throw new Error(`[Security] Invalid ${label}: ${value}`);
+    }
+}
+
 const generateAssFile = (wordEvents: any[], outputPath: string, style: CaptionStyle = 'default') => {
     if (!wordEvents || !Array.isArray(wordEvents) || wordEvents.length === 0) {
         console.warn("[⚠️] No wordEvents provided for captions.");
@@ -58,6 +74,13 @@ export const reformatVideoAndAddCaptions = async (options: {
     captionStyle: CaptionStyle;
 }): Promise<string> => {
     const { sourceVideoPath, wordEvents, aspectRatio, outputFileName, startTime, endTime, plan, enableCaptions, captionStyle } = options;
+
+    // Security: Validate all inputs that will be interpolated into shell commands
+    validateFilePath(sourceVideoPath, 'sourceVideoPath');
+    validateFilePath(outputFileName, 'outputFileName');
+    validateNumber(startTime, 'startTime');
+    validateNumber(endTime, 'endTime');
+
     const tempDir = path.join(__dirname, '..', 'temp');
     if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true });
 

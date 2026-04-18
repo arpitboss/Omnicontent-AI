@@ -7,6 +7,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { URL } from 'url';
 import Content from '../models/contentModel'; // Import the model
 import { v2 as cloudinary } from 'cloudinary';
 
@@ -14,6 +15,54 @@ import { v2 as cloudinary } from 'cloudinary';
 import '../utils/cloudinary';
 
 require('dotenv').config();
+
+// --- Security: SSRF Protection ---
+const BLOCKED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]', 'metadata.google.internal', '169.254.169.254'];
+const PRIVATE_IP_RANGES = [
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[01])\./,
+    /^192\.168\./,
+    /^0\./,
+    /^fc00:/i,
+    /^fd00:/i,
+];
+
+function isAllowedUrl(rawUrl: string): boolean {
+    try {
+        const parsed = new URL(rawUrl);
+        // Only allow http/https schemes
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+        // Block known internal hostnames
+        if (BLOCKED_HOSTS.includes(parsed.hostname)) return false;
+        // Block private IP ranges
+        if (PRIVATE_IP_RANGES.some(re => re.test(parsed.hostname))) return false;
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// --- Security: File-type validation ---
+const ALLOWED_MIME_TYPES = [
+    'video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska',
+    'video/x-msvideo', 'video/mpeg', 'video/ogg',
+];
+const VIDEO_MAGIC_BYTES: { prefix: number[]; label: string }[] = [
+    { prefix: [0x00, 0x00, 0x00], label: 'ftyp/moov (MP4/MOV)' }, // MP4/MOV (ftyp box, offset varies)
+    { prefix: [0x1A, 0x45, 0xDF, 0xA3], label: 'WebM/MKV' },
+    { prefix: [0x52, 0x49, 0x46, 0x46], label: 'AVI (RIFF)' },
+    { prefix: [0x4F, 0x67, 0x67, 0x53], label: 'OGG' },
+];
+
+function hasValidVideoHeader(buffer: Buffer): boolean {
+    if (buffer.length < 12) return false;
+    // Check for ftyp box (MP4/MOV) — ftyp appears at byte 4
+    if (buffer.toString('ascii', 4, 8) === 'ftyp') return true;
+    // Check other magic bytes at offset 0
+    return VIDEO_MAGIC_BYTES.some(({ prefix }) =>
+        prefix.every((byte, i) => buffer[i] === byte)
+    );
+}
 
 declare global {
     namespace Express {
@@ -67,6 +116,11 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
             return res.status(400).json({ message: 'URL is required' });
         }
 
+        // SSRF Protection: validate the URL before accepting it
+        if (!isAllowedUrl(url)) {
+            return res.status(400).json({ message: 'Invalid or blocked URL. Only public HTTP/HTTPS URLs are allowed.' });
+        }
+
         const newContent = new Content({ userId, sourceUrl: url, status: 'PENDING' });
         await newContent.save();
 
@@ -89,6 +143,16 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
 router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    // File-type validation: MIME type check
+    if (!ALLOWED_MIME_TYPES.includes(req.file.mimetype)) {
+        return res.status(400).json({ message: `Unsupported file type: ${req.file.mimetype}. Only video files are allowed.` });
+    }
+
+    // File-type validation: Magic byte check
+    if (!hasValidVideoHeader(req.file.buffer)) {
+        return res.status(400).json({ message: 'File content does not match a recognized video format.' });
     }
 
     const { clipLength, enableCaptions, timeframeStart, timeframeEnd, captionStyle } = req.body;
@@ -295,10 +359,35 @@ router.get('/:contentId/:videoId', requireAuth(), async (req: express.Request, r
         if (content.sourceUrl && content.sourceUrl.startsWith('http')) {
             res.redirect(content.sourceUrl);
         } else {
-            res.sendFile(videoId, { root: path.join(__dirname, '../../public/sources') });
+            // Path traversal protection: strip directory components
+            const safeVideoId = path.basename(videoId);
+            res.sendFile(safeVideoId, { root: path.join(__dirname, '../../public/sources') });
         }
     } catch (error) {
         console.error('Failed to fetch content:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// --- Delete a content job (failed or stuck) ---
+router.delete('/:contentId', requireAuth(), async (req: express.Request, res: express.Response) => {
+    try {
+        const { contentId } = req.params;
+        const userId = req.auth?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const content = await Content.findOne({ _id: contentId, userId });
+        if (!content) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+
+        await Content.deleteOne({ _id: contentId, userId });
+        console.log(`[🗑️] User ${userId} deleted content ${contentId} (status: ${content.status})`);
+        res.status(200).json({ message: 'Content deleted successfully.' });
+    } catch (error) {
+        console.error('Failed to delete content:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });

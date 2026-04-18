@@ -1,4 +1,5 @@
 // packages/backend/src/index.ts
+import crypto from 'crypto';
 import http from 'http';
 import { Server } from 'socket.io';
 import express, { Request, Response } from 'express';
@@ -40,6 +41,11 @@ const corsOptions: cors.CorsOptions = {
 
 const io = new Server(server, { cors: corsOptions });
 const PORT = process.env.PORT || 8080;
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET || '';
+
+if (!INTERNAL_API_SECRET) {
+    console.warn('[⚠️ SECURITY] INTERNAL_API_SECRET is not set. The /api/internal/notify endpoint is unprotected!');
+}
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -57,6 +63,18 @@ io.on('connection', (socket) => {
 });
 
 app.post('/api/internal/notify', express.json(), (req, res) => {
+    // Validate internal API secret (timing-safe comparison to prevent timing attacks)
+    if (INTERNAL_API_SECRET) {
+        const providedSecret = req.headers['x-internal-secret'] as string || '';
+        const secretBuffer = Buffer.from(INTERNAL_API_SECRET);
+        const providedBuffer = Buffer.from(providedSecret);
+
+        if (secretBuffer.length !== providedBuffer.length || !crypto.timingSafeEqual(secretBuffer, providedBuffer)) {
+            console.warn('[🛡️] Rejected unauthorized internal notify request.');
+            return res.sendStatus(403);
+        }
+    }
+
     const { userId, downloadUrl, reformatJobId, error } = req.body;
     if (error) {
         io.to(userId).emit('reformat_failed', { reformatJobId, error });
