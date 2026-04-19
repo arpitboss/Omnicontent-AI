@@ -113,6 +113,7 @@ interface Content {
   clips: Clip[];
   reformattedClips: ReformattedClip[];
   errorMessage?: string;
+  publishHistory?: { platform: string; publishedAt: string; postUrl: string; status: 'SUCCESS' | 'FAILED'; }[];
   createdAt: string;
 }
 
@@ -249,6 +250,7 @@ const ContentDisplayCard = ({
   translationCache,
   showTranslation,
   setShowTranslation,
+  onPublished,
 }: {
   content: Content;
   onDownload: (contentId: string, clip: Clip, aspectRatio: string) => void;
@@ -257,6 +259,7 @@ const ContentDisplayCard = ({
   translationCache: { [key: string]: TranslationData };
   showTranslation: boolean;
   setShowTranslation: (val: boolean) => void;
+  onPublished?: () => void;
 }) => {
   const { startAnimation, showImmediately } = useTypewriterManager();
   const currentTranslation = translationCache[content._id];
@@ -346,7 +349,7 @@ const ContentDisplayCard = ({
           </Button>
 
           {content.status === 'COMPLETE' && (
-            <PublishHub content={content} />
+            <PublishHub content={content} onPublished={onPublished} />
           )}
         </div>
       </div>
@@ -1019,6 +1022,32 @@ export default function DashboardPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // ---- Handle OAuth callback notifications ----
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('publish_connected');
+    const profile = params.get('profile');
+    const error = params.get('publish_error');
+
+    if (connected) {
+      toast.success(`${connected.charAt(0).toUpperCase() + connected.slice(1)} connected!`, {
+        duration: 5000,
+        description: profile ? `Signed in as ${profile}. You can now publish directly.` : 'You can now publish directly.',
+      });
+    }
+    if (error) {
+      toast.error(decodeURIComponent(error), { duration: 6000 });
+    }
+    // Clean up URL params
+    if (connected || error) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('publish_connected');
+      url.searchParams.delete('publish_error');
+      url.searchParams.delete('profile');
+      window.history.replaceState({}, '', url.pathname);
+    }
+  }, []);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1334,6 +1363,7 @@ export default function DashboardPage() {
                     translationCache={translationCache}
                     showTranslation={!!showTranslationMap[content._id]}
                     setShowTranslation={(val) => setShowTranslationMap(prev => ({ ...prev, [content._id]: val }))}
+                    onPublished={() => mutate()}
                   />
                 </TypewriterProvider>
               );

@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import connectDB from './config/db';
 import contentRoutes from './routes/contentRoutes';
+import publishRoutes from './routes/publishRoutes';
 import { clerkMiddleware } from '@clerk/express';
 // import billingRoutes from './routes/billingRoutes';
 
@@ -86,6 +87,7 @@ app.post('/api/internal/notify', express.json(), (req, res) => {
 
 // API routes
 app.use('/api/v1/content', contentRoutes);
+app.use('/api/v1/publish', publishRoutes);
 // app.use('/api/v1/billing', billingRoutes);
 
 // Health check route

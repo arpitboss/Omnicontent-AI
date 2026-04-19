@@ -35,6 +35,14 @@ const clipSchema = new mongoose.Schema({
     endTime: { type: Number, required: true },
 });
 
+const publishRecordSchema = new mongoose.Schema({
+    platform: { type: String, required: true },
+    publishedAt: { type: Date, default: Date.now },
+    postUrl: { type: String, default: '' },
+    status: { type: String, enum: ['SUCCESS', 'FAILED'], required: true },
+    errorMessage: { type: String, default: '' },
+}, { _id: false });
+
 const contentSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     sourceUrl: { type: String, required: true },
@@ -52,7 +60,8 @@ const contentSchema = new mongoose.Schema({
     localSourcePath: { type: String },
     clips: [clipSchema],
     reformattedClips: [reformattedClipSchema],
-    errorMessage: { type: String }
+    errorMessage: { type: String },
+    publishHistory: [publishRecordSchema],
 }, { timestamps: true });
 
 const Content = mongoose.model('Content', contentSchema);
