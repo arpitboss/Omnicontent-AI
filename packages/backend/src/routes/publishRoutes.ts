@@ -337,64 +337,64 @@ router.post('/linkedin/:contentId', requireAuth(), async (req: express.Request, 
 
         console.log(`[📝] Publishing to LinkedIn as ${authorUrn} (${commentary.length} chars)...`);
 
-        // Try the new REST Posts API first
-        const postBody = {
+        // Use v2/ugcPosts API (proven reliable, no version header needed)
+        const ugcBody = {
             author: authorUrn,
-            commentary,
-            visibility: 'PUBLIC',
-            distribution: {
-                feedDistribution: 'MAIN_FEED',
-                targetEntities: [],
-                thirdPartyDistributionChannels: [],
-            },
             lifecycleState: 'PUBLISHED',
-            isReshareDisabledByAuthor: false,
+            specificContent: {
+                'com.linkedin.ugc.ShareContent': {
+                    shareCommentary: { text: commentary },
+                    shareMediaCategory: 'NONE',
+                },
+            },
+            visibility: {
+                'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+            },
         };
 
-        let postRes = await fetch('https://api.linkedin.com/rest/posts', {
+        let postRes = await fetch('https://api.linkedin.com/v2/ugcPosts', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
-                'LinkedIn-Version': '202401',
                 'X-Restli-Protocol-Version': '2.0.0',
             },
-            body: JSON.stringify(postBody),
+            body: JSON.stringify(ugcBody),
         });
 
-        // If REST API fails, try v2 UGC API as fallback
+        // If ugcPosts fails, try the newer REST Posts API as fallback
         if (!postRes.ok) {
-            const restError = await postRes.text();
-            console.warn(`[⚠️] LinkedIn REST API failed (${postRes.status}): ${restError}`);
-            console.log(`[🔄] Trying v2/ugcPosts fallback...`);
+            const ugcError = await postRes.text();
+            console.warn(`[⚠️] LinkedIn ugcPosts API failed (${postRes.status}): ${ugcError}`);
+            console.log(`[🔄] Trying REST /rest/posts fallback...`);
 
-            const ugcBody = {
+            const restBody = {
                 author: authorUrn,
+                commentary,
+                visibility: 'PUBLIC',
+                distribution: {
+                    feedDistribution: 'MAIN_FEED',
+                    targetEntities: [],
+                    thirdPartyDistributionChannels: [],
+                },
                 lifecycleState: 'PUBLISHED',
-                specificContent: {
-                    'com.linkedin.ugc.ShareContent': {
-                        shareCommentary: { text: commentary },
-                        shareMediaCategory: 'NONE',
-                    },
-                },
-                visibility: {
-                    'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
-                },
+                isReshareDisabledByAuthor: false,
             };
 
-            postRes = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+            postRes = await fetch('https://api.linkedin.com/rest/posts', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
+                    'LinkedIn-Version': '202604',
                     'X-Restli-Protocol-Version': '2.0.0',
                 },
-                body: JSON.stringify(ugcBody),
+                body: JSON.stringify(restBody),
             });
 
             if (!postRes.ok) {
-                const ugcError = await postRes.text();
-                console.error(`[❌] LinkedIn UGC fallback also failed (${postRes.status}):`, ugcError);
+                const restError = await postRes.text();
+                console.error(`[❌] LinkedIn REST fallback also failed (${postRes.status}):`, restError);
 
                 (content as any).publishHistory.push({
                     platform: 'linkedin', status: 'FAILED',
@@ -405,10 +405,10 @@ router.post('/linkedin/:contentId', requireAuth(), async (req: express.Request, 
                 // Surface the real error to help debug
                 let errorDetail = '';
                 try {
-                    const parsed = JSON.parse(ugcError);
-                    errorDetail = parsed.message || parsed.error || ugcError.substring(0, 200);
+                    const parsed = JSON.parse(restError);
+                    errorDetail = parsed.message || parsed.error || restError.substring(0, 200);
                 } catch {
-                    errorDetail = ugcError.substring(0, 200);
+                    errorDetail = restError.substring(0, 200);
                 }
 
                 return res.status(502).json({
