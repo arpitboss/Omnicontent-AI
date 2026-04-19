@@ -11,6 +11,7 @@ import useSWR from "swr";
 
 import { CopyButton } from '@/components/copy-button';
 import { Header } from "@/components/header";
+import { PublishHub } from "@/components/publish-hub";
 import { ArticleSkeleton, LinkedInSkeleton, TwitterSkeleton } from "@/components/skeletons";
 import { TranscriptDisplay } from "@/components/transcript-display";
 import { TypewriterText } from "@/components/typewriter-text";
@@ -343,6 +344,10 @@ const ContentDisplayCard = ({
             <Zap className="mr-2 h-4 w-4" />
             {currentTranslation ? "CHANGE LANG" : "TRANSLATE"}
           </Button>
+
+          {content.status === 'COMPLETE' && (
+            <PublishHub content={content} />
+          )}
         </div>
       </div>
 
