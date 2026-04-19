@@ -141,7 +141,7 @@ router.post('/connect/:platform', requireAuth(), async (req: express.Request, re
             if (!GOOGLE_CLIENT_ID) {
                 return res.status(500).json({ message: 'YouTube integration is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.' });
             }
-            const scopes = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/userinfo.profile';
+            const scopes = 'https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/userinfo.profile';
             const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(YOUTUBE_REDIRECT_URI)}&state=${state}&scope=${encodeURIComponent(scopes)}&access_type=offline&prompt=consent`;
             return res.json({ authUrl });
         }
@@ -325,10 +325,33 @@ router.post('/linkedin/:contentId', requireAuth(), async (req: express.Request, 
         const account = await SocialAccount.findOne({ userId, platform: 'linkedin' });
         if (!account) return res.status(400).json({ message: 'LinkedIn account not connected. Please connect first.' });
 
+        if (!account.platformUserId) {
+            return res.status(400).json({ message: 'LinkedIn member ID is missing. Please disconnect and reconnect your LinkedIn account.' });
+        }
+
         const accessToken = await getLinkedInToken(account);
 
-        // Call LinkedIn Posts API
-        const postRes = await fetch('https://api.linkedin.com/rest/posts', {
+        // LinkedIn has a 3000 character limit for post commentary
+        const commentary = (content.linkedinPost as string).substring(0, 3000);
+        const authorUrn = `urn:li:person:${account.platformUserId}`;
+
+        console.log(`[📝] Publishing to LinkedIn as ${authorUrn} (${commentary.length} chars)...`);
+
+        // Try the new REST Posts API first
+        const postBody = {
+            author: authorUrn,
+            commentary,
+            visibility: 'PUBLIC',
+            distribution: {
+                feedDistribution: 'MAIN_FEED',
+                targetEntities: [],
+                thirdPartyDistributionChannels: [],
+            },
+            lifecycleState: 'PUBLISHED',
+            isReshareDisabledByAuthor: false,
+        };
+
+        let postRes = await fetch('https://api.linkedin.com/rest/posts', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -336,33 +359,65 @@ router.post('/linkedin/:contentId', requireAuth(), async (req: express.Request, 
                 'LinkedIn-Version': '202401',
                 'X-Restli-Protocol-Version': '2.0.0',
             },
-            body: JSON.stringify({
-                author: `urn:li:person:${account.platformUserId}`,
-                commentary: content.linkedinPost,
-                visibility: 'PUBLIC',
-                distribution: {
-                    feedDistribution: 'MAIN_FEED',
-                    targetEntities: [],
-                    thirdPartyDistributionChannels: [],
-                },
-                lifecycleState: 'PUBLISHED',
-            }),
+            body: JSON.stringify(postBody),
         });
 
+        // If REST API fails, try v2 UGC API as fallback
         if (!postRes.ok) {
-            const errorData = await postRes.text();
-            console.error(`[❌] LinkedIn publish failed (${postRes.status}):`, errorData);
+            const restError = await postRes.text();
+            console.warn(`[⚠️] LinkedIn REST API failed (${postRes.status}): ${restError}`);
+            console.log(`[🔄] Trying v2/ugcPosts fallback...`);
 
-            (content as any).publishHistory.push({
-                platform: 'linkedin', status: 'FAILED',
-                errorMessage: `LinkedIn API error (${postRes.status})`,
+            const ugcBody = {
+                author: authorUrn,
+                lifecycleState: 'PUBLISHED',
+                specificContent: {
+                    'com.linkedin.ugc.ShareContent': {
+                        shareCommentary: { text: commentary },
+                        shareMediaCategory: 'NONE',
+                    },
+                },
+                visibility: {
+                    'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+                },
+            };
+
+            postRes = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                    'X-Restli-Protocol-Version': '2.0.0',
+                },
+                body: JSON.stringify(ugcBody),
             });
-            await content.save();
 
-            return res.status(502).json({ message: 'LinkedIn rejected the post. Please try again or reconnect your account.' });
+            if (!postRes.ok) {
+                const ugcError = await postRes.text();
+                console.error(`[❌] LinkedIn UGC fallback also failed (${postRes.status}):`, ugcError);
+
+                (content as any).publishHistory.push({
+                    platform: 'linkedin', status: 'FAILED',
+                    errorMessage: `LinkedIn API error (${postRes.status})`,
+                });
+                await content.save();
+
+                // Surface the real error to help debug
+                let errorDetail = '';
+                try {
+                    const parsed = JSON.parse(ugcError);
+                    errorDetail = parsed.message || parsed.error || ugcError.substring(0, 200);
+                } catch {
+                    errorDetail = ugcError.substring(0, 200);
+                }
+
+                return res.status(502).json({
+                    message: `LinkedIn rejected the post: ${errorDetail}`,
+                });
+            }
         }
 
-        const postId = postRes.headers.get('x-restli-id') || '';
+        const postId = postRes.headers.get('x-restli-id') || postRes.headers.get('x-linkedin-id') || '';
         const postUrl = postId ? `https://www.linkedin.com/feed/update/${postId}` : '';
 
         (content as any).publishHistory.push({

@@ -204,7 +204,8 @@ const startWorker = async () => {
                                 console.error(`Error: ${execError.message}`);
                                 throw new Error(`Failed to download video from URL: ${execError.message}`);
                             }
-                            // YouTube download via yt-dlp — use execFile to prevent injection
+                        } else {
+                            // YouTube / other platform download via yt-dlp — use execFile to prevent injection
                             const ytdlpArgs: string[] = [
                                 '--js-runtimes', 'node',
                                 '--remote-components', 'ejs:github',
