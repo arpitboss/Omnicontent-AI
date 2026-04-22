@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Check,
   ExternalLink,
@@ -86,6 +87,7 @@ interface PublishContent {
   generatedContent?: string;
   summary?: string;
   linkedinPost?: string;
+  blogPost?: string;
   twitterThread: string[];
   clips: PublishClip[];
   publishHistory?: PublishRecord[];
@@ -109,34 +111,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 // ─────────────────── Workaround Actions ───────────────────
 
-function publishToTwitter(content: PublishContent): boolean {
-  if (!content.twitterThread || content.twitterThread.length === 0) {
-    toast.error("No Twitter thread content available.");
-    return false;
-  }
-  const cleanedThread = content.twitterThread.map((t) => t.replace(/^\d+\/\s*/, ""));
-  const firstTweet = cleanedThread[0];
-  if (cleanedThread.length === 1) {
-    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(firstTweet)}`, "_blank");
-    toast.success("Tweet compose window opened!");
-  } else {
-    const fullThread = cleanedThread.map((t, i) => `${i + 1}/${cleanedThread.length}\n${t}`).join("\n\n---\n\n");
-    navigator.clipboard.writeText(fullThread);
-    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(firstTweet)}`, "_blank");
-    toast.success("Thread copied to clipboard!", {
-      duration: 6000,
-      description: `First tweet is pre-filled. Post it, then paste remaining ${cleanedThread.length - 1} tweets as replies.`,
-    });
-  }
-  return true;
-}
-
 function publishToMedium(content: PublishContent): boolean {
-  if (!content.generatedContent) {
+  if (!content.generatedContent && !content.blogPost) {
     toast.error("No article content available.");
     return false;
   }
-  navigator.clipboard.writeText(content.generatedContent);
+  navigator.clipboard.writeText(content.blogPost || content.generatedContent || "");
   window.open("https://medium.com/new-story", "_blank");
   toast.success("Article copied to clipboard!", {
     duration: 5000,
@@ -286,6 +266,72 @@ function ClipPickerDialog({
   );
 }
 
+// ─────────────────── Token Input Dialog ───────────────────
+
+function TokenInputDialog({
+  open,
+  onOpenChange,
+  platform,
+  tokenValue,
+  onTokenChange,
+  onSave,
+  saving,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  platform: "twitter" | null;
+  tokenValue: string;
+  onTokenChange: (val: string) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  if (!platform) return null;
+
+  const isTwitter = platform === "twitter";
+  const PlatformIcon = XTwitterIcon;
+  const platformName = "X / Twitter";
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[420px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
+        <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className={`w-8 h-8 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center rounded-sm`}>
+              <PlatformIcon className="w-4 h-4" />
+            </div>
+            <DialogTitle className="font-bold uppercase tracking-widest text-lg">
+              Connect {platformName}
+            </DialogTitle>
+          </div>
+          <DialogDescription className="font-mono text-xs text-neutral-500">
+            To connect X/Twitter, enter your GetXAPI token below.
+          </DialogDescription>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <Input 
+            placeholder="Enter your API Token" 
+            value={tokenValue} 
+            onChange={(e) => onTokenChange(e.target.value)}
+            disabled={saving}
+            className="w-full font-mono text-xs p-3 rounded-none focus-visible:ring-emerald-500"
+          />
+          <div className="flex justify-end pt-2">
+            <Button
+              className="rounded-none bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black font-mono text-xs uppercase tracking-widest px-6"
+              onClick={onSave}
+              disabled={saving || !tokenValue.trim()}
+            >
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {saving ? "Connecting..." : "Connect Account"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─────────────────── Account Manager Dialog ───────────────────
 
 function AccountManagerDialog({
@@ -305,15 +351,10 @@ function AccountManagerDialog({
   connecting: string | null;
   disconnecting: string | null;
 }) {
-  const directPlatforms = [
-    { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, color: "bg-[#0A66C2]", desc: "Post directly to your LinkedIn feed" },
-    { id: "youtube", name: "YouTube", icon: YouTubeIcon, color: "bg-[#FF0000]", desc: "Upload Shorts to your channel" },
-  ];
-
-  const workaroundPlatforms = [
-    { id: "twitter", name: "X / Twitter", icon: XTwitterIcon, desc: "Pre-filled via Web Intent" },
-    { id: "medium", name: "Medium", icon: MediumIcon, desc: "Copy article to clipboard" },
-    { id: "instagram", name: "Instagram", icon: InstagramIcon, desc: "Download clip for mobile upload" },
+  const allPlatforms = [
+    { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, color: "bg-[#0A66C2]", desc: "Post directly to your LinkedIn feed", connectType: "oauth" as const },
+    { id: "youtube", name: "YouTube", icon: YouTubeIcon, color: "bg-[#FF0000]", desc: "Upload Shorts to your channel", connectType: "oauth" as const },
+    { id: "twitter", name: "X / Twitter", icon: XTwitterIcon, color: "bg-black dark:bg-white", desc: "Post threads directly to X", connectType: "token" as const },
   ];
 
   return (
@@ -328,88 +369,64 @@ function AccountManagerDialog({
           </DialogDescription>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Direct API Platforms */}
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 mb-3">
-              Direct Publishing
-            </p>
-            <div className="space-y-2">
-              {directPlatforms.map((p) => {
-                const connected = accounts.find((a) => a.platform === p.id);
-                const Icon = p.icon;
-                return (
-                  <div
-                    key={p.id}
-                    className={`flex items-center justify-between p-4 border transition-all ${
-                      connected
-                        ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/10"
-                        : "border-neutral-200 dark:border-neutral-800"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-8 h-8 ${p.color} flex items-center justify-center rounded-sm`}>
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold">{p.name}</p>
-                        {connected ? (
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1">
-                            <Check className="w-3 h-3" /> {connected.profileName}
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-neutral-500 font-mono">{p.desc}</p>
-                        )}
-                      </div>
+        <div className="p-6 space-y-2">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 mb-3">
+            Direct Publishing — Connect Once, Publish Forever
+          </p>
+          <div className="space-y-2">
+            {allPlatforms.map((p) => {
+              const connected = accounts.find((a) => a.platform === p.id);
+              const Icon = p.icon;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between p-4 border transition-all ${
+                    connected
+                      ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/10"
+                      : "border-neutral-200 dark:border-neutral-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 ${p.color} flex items-center justify-center rounded-sm`}>
+                      <Icon className="w-4 h-4 text-white" />
                     </div>
-                    {connected ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={disconnecting === p.id}
-                        onClick={() => onDisconnect(p.id)}
-                        className="rounded-none text-xs font-mono text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                      >
-                        {disconnecting === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unplug className="w-3 h-3 mr-1" />}
-                        Disconnect
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={connecting !== null}
-                        onClick={() => onConnect(p.id)}
-                        className="rounded-none text-xs font-mono border-neutral-300 dark:border-neutral-700 hover:border-emerald-500 hover:text-emerald-600"
-                      >
-                        {connecting === p.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Link2 className="w-3 h-3 mr-1" />}
-                        Connect
-                      </Button>
-                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{p.name}</p>
+                      {connected ? (
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1">
+                          <Check className="w-3 h-3" /> {connected.profileName}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-neutral-500 font-mono">{p.desc}</p>
+                      )}
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Workaround Platforms */}
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 mb-3">
-              Assisted Sharing <span className="text-neutral-300 dark:text-neutral-600">— no account needed</span>
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {workaroundPlatforms.map((p) => {
-                const Icon = p.icon;
-                return (
-                  <div key={p.id} className="flex items-center gap-2 px-3 py-2 border border-dashed border-neutral-200 dark:border-neutral-800">
-                    <Icon className="w-3.5 h-3.5 text-neutral-400" />
-                    <span className="text-xs font-mono text-neutral-500">{p.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-[10px] text-neutral-400 font-mono mt-2">
-              These platforms use smart sharing — content is copied/pre-filled for you.
-            </p>
+                  {connected ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={disconnecting === p.id}
+                      onClick={() => onDisconnect(p.id)}
+                      className="rounded-none text-xs font-mono text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >
+                      {disconnecting === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unplug className="w-3 h-3 mr-1" />}
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={connecting !== null}
+                      onClick={() => onConnect(p.id)}
+                      className="rounded-none text-xs font-mono border-neutral-300 dark:border-neutral-700 hover:border-emerald-500 hover:text-emerald-600"
+                    >
+                      {connecting === p.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Link2 className="w-3 h-3 mr-1" />}
+                      Connect
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </DialogContent>
@@ -428,6 +445,9 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
   const [publishing, setPublishing] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [tokenDialogPlatform, setTokenDialogPlatform] = useState<"twitter" | null>(null);
+  const [tokenValue, setTokenValue] = useState("");
 
   // Fetch connected accounts
   const accountsFetcher = useCallback(
@@ -463,6 +483,14 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
 
   // ─── Connect Account ───
   const handleConnect = async (platform: string) => {
+    // Twitter uses token-based auth
+    if (platform === "twitter") {
+      setTokenDialogPlatform("twitter");
+      setTokenValue("");
+      setTokenDialogOpen(true);
+      return;
+    }
+
     setConnecting(platform);
     try {
       const token = await getToken();
@@ -479,6 +507,32 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
       window.location.href = data.authUrl;
     } catch {
       toast.error("Failed to connect account.");
+    } finally {
+      setConnecting(null);
+    }
+  };
+
+  // ─── Save Token (Twitter) ───
+  const handleSaveToken = async () => {
+    if (!tokenDialogPlatform || !tokenValue.trim()) return;
+    setConnecting(tokenDialogPlatform);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/api/v1/publish/save-token/${tokenDialogPlatform}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ token: tokenValue.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || "Invalid token.");
+        return;
+      }
+      toast.success(data.message || "Connected!");
+      mutateAccounts();
+      setTokenDialogOpen(false);
+    } catch {
+      toast.error("Failed to save token.");
     } finally {
       setConnecting(null);
     }
@@ -554,10 +608,51 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
     setClipPickerOpen(true);
   };
 
-  // ─── Workaround Handlers ───
-  const handleTwitterPublish = () => publishToTwitter(content);
-  const handleMediumPublish = () => publishToMedium(content);
+  // ─── Direct Publish: Twitter ───
+  const handleTwitterPublish = async () => {
+    if (!isConnected("twitter")) {
+      handleConnect("twitter");
+      return;
+    }
+    setPublishing("twitter");
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/api/v1/publish/twitter/${content._id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || "Failed to publish to X.");
+        return;
+      }
+      toast.success(data.message || "Published to X!", {
+        duration: 8000,
+        description: data.postUrl ? (
+          <a href={data.postUrl} target="_blank" rel="noopener noreferrer" className="underline">
+            View your thread →
+          </a>
+        ) : undefined,
+      });
+      onPublished?.();
+    } catch {
+      toast.error("Failed to publish to X.");
+    } finally {
+      setPublishing(null);
+    }
+  };
+
+  // ─── Direct Publish: Medium (Workaround) ───
+  const handleMediumPublish = async () => {
+    publishToMedium(content);
+  };
+
+  // ─── Direct Publish: Instagram ───
   const handleInstagramPublish = () => {
+    if (!isConnected("instagram")) {
+      handleConnect("instagram");
+      return;
+    }
     if (!hasVideoContent) {
       toast.error("No video clips are ready yet.");
       return;
@@ -586,11 +681,11 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
       icon: XTwitterIcon,
       color: "text-neutral-900 dark:text-neutral-100",
       hoverBg: "hover:bg-neutral-100 dark:hover:bg-neutral-800",
-      type: "workaround" as const,
+      type: "direct" as const,
       action: handleTwitterPublish,
       disabled: !content.twitterThread?.length,
-      connected: false,
-      published: false,
+      connected: isConnected("twitter"),
+      published: publishedTo.has("twitter"),
     },
     {
       id: "medium",
@@ -600,7 +695,7 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
       hoverBg: "hover:bg-neutral-100 dark:hover:bg-neutral-800",
       type: "workaround" as const,
       action: handleMediumPublish,
-      disabled: !content.generatedContent,
+      disabled: !(content.blogPost || content.generatedContent),
       connected: false,
       published: false,
     },
@@ -807,6 +902,17 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
         onDisconnect={handleDisconnect}
         connecting={connecting}
         disconnecting={disconnecting}
+      />
+
+      {/* Token Input Dialog (Twitter) */}
+      <TokenInputDialog
+        open={tokenDialogOpen}
+        onOpenChange={setTokenDialogOpen}
+        platform={tokenDialogPlatform}
+        tokenValue={tokenValue}
+        onTokenChange={setTokenValue}
+        onSave={handleSaveToken}
+        saving={connecting !== null}
       />
     </>
   );

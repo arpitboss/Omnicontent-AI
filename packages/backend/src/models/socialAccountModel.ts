@@ -5,7 +5,7 @@ const socialAccountSchema = new mongoose.Schema({
     platform: {
         type: String,
         required: true,
-        enum: ['linkedin', 'youtube'],
+        enum: ['linkedin', 'youtube', 'medium', 'twitter', 'instagram'],
     },
     accessToken: { type: String, required: true },
     refreshToken: { type: String, default: '' },

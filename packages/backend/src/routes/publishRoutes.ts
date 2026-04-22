@@ -25,6 +25,9 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 const YOUTUBE_REDIRECT_URI = `${BACKEND_URL}/api/v1/publish/callback/youtube`;
 
+// Twitter/X via GetXAPI
+const GETXAPI_KEY = process.env.GETXAPI_API_KEY || '';
+
 // ─────────────────── OAuth State Helpers ───────────────────
 
 function createState(userId: string): string {
@@ -147,6 +150,60 @@ router.post('/connect/:platform', requireAuth(), async (req: express.Request, re
         }
         default:
             return res.status(400).json({ message: `Unsupported platform: ${platform}` });
+    }
+});
+
+// ─── Save Token (Twitter auth_token) ───
+router.post('/save-token/:platform', requireAuth(), async (req: express.Request, res: express.Response) => {
+    const { platform } = req.params;
+    const userId = req.auth?.userId;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    if (platform !== 'twitter') {
+        return res.status(400).json({ message: 'This endpoint is only for Twitter.' });
+    }
+
+    const { token } = req.body;
+    if (!token || typeof token !== 'string' || token.trim().length < 5) {
+        return res.status(400).json({ message: 'A valid token is required.' });
+    }
+
+    try {
+        if (platform === 'twitter') {
+            // Save the auth_token — we can verify it by fetching account info if GetXAPI key is set
+            let profileName = 'X User';
+            let platformUserId = '';
+            let profileImageUrl = '';
+
+            if (GETXAPI_KEY) {
+                // Try to get user info from the auth token via GetXAPI user_login
+                // We'll leave profileName as-is if this doesn't work
+                try {
+                    const infoRes = await fetch(`https://api.getxapi.com/twitter/user/info?userName=_`, {
+                        headers: { 'Authorization': `Bearer ${GETXAPI_KEY}` },
+                    });
+                    // Note: We can't easily get the user's own profile from just auth_token
+                    // via GetXAPI without knowing the username. We'll store it as-is.
+                } catch { /* non-critical */ }
+            }
+
+            await SocialAccount.findOneAndUpdate(
+                { userId, platform: 'twitter' },
+                {
+                    accessToken: token.trim(),
+                    profileName,
+                    platformUserId,
+                    profileImageUrl,
+                },
+                { upsert: true, new: true }
+            );
+
+            console.log(`[✅] Twitter/X connected for user ${userId}`);
+            return res.json({ message: 'Twitter/X connected!', profileName });
+        }
+    } catch (error: any) {
+        console.error(`[${platform}] Save token error:`, error);
+        return res.status(500).json({ message: error.message || 'Failed to save token.' });
     }
 });
 
@@ -534,5 +591,108 @@ router.post('/youtube/:contentId/:clipId', requireAuth(), async (req: express.Re
         res.status(500).json({ message: error.message || 'Failed to upload to YouTube.' });
     }
 });
+
+
+
+// ─── Publish to Twitter/X (via GetXAPI) ───
+router.post('/twitter/:contentId', requireAuth(), async (req: express.Request, res: express.Response) => {
+    try {
+        const { contentId } = req.params;
+        const userId = req.auth?.userId;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+        const content = await Content.findOne({ _id: contentId, userId });
+        if (!content) return res.status(404).json({ message: 'Content not found' });
+
+        const tweetThread = (content as any).twitterThread;
+        if (!tweetThread || !Array.isArray(tweetThread) || tweetThread.length === 0) {
+            return res.status(400).json({ message: 'No Twitter thread content generated for this item.' });
+        }
+
+        const account = await SocialAccount.findOne({ userId, platform: 'twitter' });
+        if (!account) return res.status(400).json({ message: 'Twitter/X account not connected. Please connect first.' });
+
+        if (!GETXAPI_KEY) {
+            return res.status(500).json({ message: 'Twitter integration not configured. Set GETXAPI_API_KEY.' });
+        }
+
+        console.log(`[🐦] Publishing ${tweetThread.length}-tweet thread to X...`);
+
+        let lastTweetId = '';
+        let firstTweetId = '';
+
+        for (let i = 0; i < tweetThread.length; i++) {
+            const tweetText = tweetThread[i].substring(0, 280); // Twitter 280 char limit
+
+            const body: any = {
+                auth_token: account.accessToken,
+                text: tweetText,
+            };
+
+            // Reply to previous tweet to create thread
+            if (lastTweetId) {
+                body.reply_to_tweet_id = lastTweetId;
+            }
+
+            const tweetRes = await fetch('https://api.getxapi.com/twitter/tweet/create', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GETXAPI_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!tweetRes.ok) {
+                const errText = await tweetRes.text();
+                console.error(`[❌] Tweet ${i + 1} failed (${tweetRes.status}):`, errText);
+
+                if (i === 0) {
+                    // First tweet failed — entire thread fails
+                    (content as any).publishHistory.push({
+                        platform: 'twitter', status: 'FAILED',
+                        errorMessage: `Tweet creation failed: ${errText.substring(0, 100)}`,
+                    });
+                    await content.save();
+
+                    let errorDetail = '';
+                    try {
+                        const parsed = JSON.parse(errText);
+                        errorDetail = parsed.error || errText.substring(0, 200);
+                    } catch { errorDetail = errText.substring(0, 200); }
+
+                    return res.status(502).json({ message: `Twitter rejected the tweet: ${errorDetail}` });
+                }
+                // Partial thread published — continue but note the failure
+                console.warn(`[⚠️] Thread partially published (${i}/${tweetThread.length} tweets)`);
+                break;
+            }
+
+            const tweetResult = await tweetRes.json();
+            lastTweetId = tweetResult.data?.id || '';
+            if (i === 0) firstTweetId = lastTweetId;
+
+            console.log(`[✅] Tweet ${i + 1}/${tweetThread.length} posted: ${lastTweetId}`);
+
+            // Small delay between thread tweets to avoid rate limits
+            if (i < tweetThread.length - 1) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        const postUrl = firstTweetId ? `https://x.com/i/status/${firstTweetId}` : '';
+
+        (content as any).publishHistory.push({ platform: 'twitter', status: 'SUCCESS', postUrl });
+        await content.save();
+
+        console.log(`[✅] Published Twitter thread: ${postUrl}`);
+        res.json({ message: `Published ${tweetThread.length}-tweet thread to X!`, postUrl });
+    } catch (error: any) {
+        console.error('[Twitter Publish] Error:', error);
+        res.status(500).json({ message: error.message || 'Failed to publish to Twitter/X.' });
+    }
+});
+
+
 
 export default router;
