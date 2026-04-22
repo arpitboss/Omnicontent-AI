@@ -224,8 +224,8 @@ function ClipPickerDialog({
       <DialogContent className="sm:max-w-[520px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
         <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center space-x-3 mb-2">
-            <div className={`w-8 h-8 ${isYouTube ? "bg-[#FF0000]" : "bg-gradient-to-br from-[#833AB4] via-[#E4405F] to-[#FCAF45]"} flex items-center justify-center rounded-sm`}>
-              <PlatformIcon className="w-4 h-4 text-white" />
+            <div className={`w-8 h-8 ${isYouTube ? "bg-[#FF0000]/10 text-[#FF0000]" : "bg-[#E4405F]/10 text-[#E4405F]"} flex items-center justify-center rounded-sm`}>
+              <PlatformIcon className="w-4 h-4" />
             </div>
             <DialogTitle className="font-bold uppercase tracking-widest text-lg">
               Select Clip
@@ -309,7 +309,7 @@ function TokenInputDialog({
       <DialogContent className="sm:max-w-[420px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
         <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
           <div className="flex items-center space-x-3 mb-2">
-            <div className={`w-8 h-8 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center rounded-sm`}>
+            <div className={`w-8 h-8 bg-black/10 dark:bg-white/10 text-black dark:text-white flex items-center justify-center rounded-sm`}>
               <PlatformIcon className="w-4 h-4" />
             </div>
             <DialogTitle className="font-bold uppercase tracking-widest text-lg">
@@ -365,9 +365,9 @@ function AccountManagerDialog({
   disconnecting: string | null;
 }) {
   const allPlatforms = [
-    { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, color: "bg-[#0A66C2]", desc: "Post directly to your LinkedIn feed", connectType: "oauth" as const },
-    { id: "youtube", name: "YouTube", icon: YouTubeIcon, color: "bg-[#FF0000]", desc: "Upload Shorts to your channel", connectType: "oauth" as const },
-    { id: "twitter", name: "X / Twitter", icon: XTwitterIcon, color: "bg-black dark:bg-white", desc: "Post threads directly to X", connectType: "token" as const },
+    { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, color: "text-[#0A66C2]", bg: "bg-[#0A66C2]/10", desc: "Post directly to your LinkedIn feed", connectType: "oauth" as const },
+    { id: "youtube", name: "YouTube", icon: YouTubeIcon, color: "text-[#FF0000]", bg: "bg-[#FF0000]/10", desc: "Upload Shorts to your channel", connectType: "oauth" as const },
+    { id: "twitter", name: "X / Twitter", icon: XTwitterIcon, color: "text-black dark:text-white", bg: "bg-black/10 dark:bg-white/10", desc: "Post threads directly to X", connectType: "token" as const },
   ];
 
   return (
@@ -400,8 +400,8 @@ function AccountManagerDialog({
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-8 h-8 ${p.color} flex items-center justify-center rounded-sm`}>
-                      <Icon className="w-4 h-4 text-white" />
+                    <div className={`w-8 h-8 ${p.bg} flex items-center justify-center rounded-sm`}>
+                      <Icon className={`w-4 h-4 ${p.color}`} />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold">{p.name}</p>
