@@ -172,6 +172,19 @@ function ClipPickerDialog({
   const handleClipSelect = async (clip: PublishClip) => {
     if (platform === "instagram") {
       publishToInstagram(clip, contentTitle);
+      
+      // Let the backend know we used the workaround so it updates the publish history
+      try {
+        const token = await getToken();
+        await fetch(`${API_URL}/api/v1/publish/mark-published/instagram/${contentId}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        onPublished?.();
+      } catch (e) {
+        console.error("Failed to mark Instagram as published", e);
+      }
+
       onOpenChange(false);
       return;
     }
@@ -644,7 +657,19 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
 
   // ─── Direct Publish: Medium (Workaround) ───
   const handleMediumPublish = async () => {
-    publishToMedium(content);
+    const success = publishToMedium(content);
+    if (success) {
+      try {
+        const token = await getToken();
+        await fetch(`${API_URL}/api/v1/publish/mark-published/medium/${content._id}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        onPublished?.();
+      } catch (e) {
+        console.error("Failed to mark Medium as published", e);
+      }
+    }
   };
 
   // ─── Direct Publish: Instagram ───

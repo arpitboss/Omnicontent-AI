@@ -695,4 +695,34 @@ router.post('/twitter/:contentId', requireAuth(), async (req: express.Request, r
 
 
 
+// ─── Mark as published (for workaround platforms) ───
+router.post('/mark-published/:platform/:contentId', requireAuth(), async (req: express.Request, res: express.Response) => {
+    try {
+        const { platform, contentId } = req.params;
+        const userId = req.auth?.userId;
+        if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+        const content = await Content.findOne({ _id: contentId, userId });
+        if (!content) return res.status(404).json({ message: 'Content not found' });
+
+        // Add to publish history if not already there with SUCCESS
+        const alreadyPublished = (content as any).publishHistory.find((p: any) => p.platform === platform && p.status === 'SUCCESS');
+        
+        if (!alreadyPublished) {
+            (content as any).publishHistory.push({
+                platform,
+                status: 'SUCCESS',
+                postUrl: '', // No direct URL for workaround
+                publishedAt: new Date()
+            });
+            await content.save();
+        }
+
+        res.json({ message: `Marked as published on ${platform}` });
+    } catch (error: any) {
+        console.error('[Mark Published] Error:', error);
+        res.status(500).json({ message: 'Failed to mark as published.' });
+    }
+});
+
 export default router;
