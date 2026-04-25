@@ -1,18 +1,11 @@
-import { Providers } from "@/components/providers";
-import { BackgroundShader } from "@/components/ui/background-shader";
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Outfit, JetBrains_Mono } from "next/font/google";
+import { Geist, JetBrains_Mono } from "next/font/google";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const outfit = Outfit({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
-});
-
-const bricolage = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-bricolage",
+  variable: "--font-geist",
   display: "swap",
 });
 
@@ -24,28 +17,34 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OmniContent AI",
-  description: "Upload once, publish everywhere.",
+  title: "OmniContent AI — Upload once, publish everywhere",
+  description:
+    "AI-native content distribution. Atomize long-form video into clips, articles, and platform-native posts in minutes.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{
-          __html: `
-    (() => {
-      const saved = localStorage.getItem("theme");
-      const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const theme = saved || (systemDark ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", theme === "dark");
-    })();
-  `
-        }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+              try {
+                const saved = localStorage.getItem("theme");
+                const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                const theme = saved || (systemDark ? "dark" : "light");
+                document.documentElement.classList.toggle("dark", theme === "dark");
+              } catch {}
+            })();`,
+          }}
+        />
       </head>
-      <body className={`${outfit.variable} ${bricolage.variable} ${jetbrains.variable} antialiased selection:bg-foreground/10 min-h-screen flex flex-col`}>
-        <BackgroundShader />
-        <div className="animate-page-blur">
+      <body
+        className={`${geist.variable} ${jetbrains.variable} antialiased min-h-screen flex flex-col`}
+      >
+        {/* Quiet emerald glow + faint noise; replaces animated BackgroundShader */}
+        <div aria-hidden className="bg-page" />
+        <div className="animate-page-blur flex flex-col flex-1">
           <Providers>{children}</Providers>
         </div>
       </body>

@@ -1,121 +1,187 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import * as React from "react";
 import { motion } from "framer-motion";
+import { Check } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { CardSpotlight } from "@/components/ui/card-spotlight";
 
+const ease = [0.16, 1, 0.3, 1] as const;
+
+interface Plan {
+  name: string;
+  price: string;
+  period?: string;
+  description: string;
+  features: string[];
+  cta: string;
+  popular?: boolean;
+}
+
+/**
+ * Pricing — single signature: CardSpotlight (cursor-follow
+ * glow). Popular tier no longer scales; instead it gets a
+ * thicker emerald accent rail at the top + slightly stronger
+ * border. Quieter, more confident.
+ */
 export function PricingSection() {
-  const plans = [
+  const plans: Plan[] = [
     {
       name: "Starter",
       price: "$0",
-      description: "Perfect for individuals exploring AI content generation.",
+      period: "/month",
+      description: "For individuals exploring AI content workflows.",
       features: [
-        "500 AI-generated clips / mo",
-        "Basic neural transcription",
-        "720p export quality",
-        "Community support"
+        "500 clips per month",
+        "Standard transcription",
+        "1080p export",
+        "Community support",
       ],
-      cta: "Start Building",
-      popular: false
+      cta: "Start for free",
     },
     {
       name: "Pro",
       price: "$49",
-      description: "For creators and teams requiring high-velocity output.",
+      period: "/month",
+      description: "For creators and teams shipping every week.",
       features: [
-        "Unlimited AI clips",
-        "99.8% accuracy transcription",
-        "4K export quality",
-        "Custom brand templates",
-        "Priority neural processing"
+        "Unlimited clips",
+        "99.8% transcription accuracy",
+        "4K export",
+        "Brand voice templates",
+        "Priority processing",
       ],
       cta: "Upgrade to Pro",
-      popular: true
+      popular: true,
     },
     {
       name: "Enterprise",
       price: "Custom",
-      description: "Scalable infrastructure for media organizations.",
+      description: "For media organizations with bespoke requirements.",
       features: [
         "Dedicated GPU clusters",
         "Custom model fine-tuning",
         "SSO & RBAC",
         "SLA guarantees",
-        "24/7 dedicated support"
+        "24/7 dedicated support",
       ],
-      cta: "Contact Sales",
-      popular: false
-    }
+      cta: "Contact sales",
+    },
   ];
 
   return (
-    <section className="relative overflow-hidden bg-transparent">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-20">
-          <h2 className="section-title mx-auto mb-6">
-            Simple, transparent{" "}
-            <span className="text-muted-foreground/60">pricing.</span>
+    <section id="pricing" className="section-y">
+      <div className="container-page">
+        <header className="mb-12 md:mb-14 mx-auto max-w-2xl text-center">
+          <p className="eyebrow mb-3">Pricing</p>
+          <h2 className="section-title mx-auto text-balance">
+            Simple, transparent.{" "}
+            <span className="text-muted-foreground">No surprises.</span>
           </h2>
-          <p className="section-subtitle mx-auto">
-            Choose the plan that fits your scale. No hidden fees. Cancel anytime.
+          <p className="section-lede mx-auto mt-4 text-balance">
+            Start free. Upgrade when you ship more. Cancel anytime.
           </p>
-        </div>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {plans.map((plan, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+          {plans.map((plan, i) => (
             <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
+              key={plan.name}
+              initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              viewport={{ once: true, margin: "-40px" }}
+              transition={{ duration: 0.5, ease, delay: i * 0.06 }}
               className="h-full"
             >
               <CardSpotlight
-                className={`relative rounded-xl p-8 flex flex-col h-full transition-all duration-500 group ${plan.popular
-                  ? "bg-card border-emerald-500/30 shadow-xl shadow-emerald-500/[0.05] scale-[1.02] z-10"
-                  : "bg-card border-border/60"
-                  }`}
+                className={cn(
+                  "relative h-full p-7 md:p-8 flex flex-col rounded-xl overflow-visible transition-all duration-300",
+                  plan.popular
+                    ? "border-brand/40 shadow-[0_0_0_1px_var(--accent-glow),0_24px_60px_-30px_var(--accent-glow)]"
+                    : "border-border hover:border-foreground/25"
+                )}
               >
-                {/* Popular badge */}
                 {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-black px-4 py-1 text-xs font-bold rounded-full shadow-md z-30">
-                    Recommended
-                  </div>
+                  <>
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-brand to-transparent"
+                    />
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 rounded-xl"
+                      style={{
+                        background:
+                          "radial-gradient(120% 80% at 50% 0%, var(--accent-glow), transparent 60%)",
+                        opacity: 0.5,
+                      }}
+                    />
+                  </>
                 )}
 
-                <div className="mb-8 relative z-20">
-                  <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">{plan.name}</h3>
-                  <div className="flex items-baseline gap-1 mb-4 text-foreground">
-                    <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
-                    {plan.price !== "Custom" && <span className="text-muted-foreground text-sm">/month</span>}
+                <div className="relative z-20">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="eyebrow text-[10.5px] m-0">{plan.name}</h3>
+                    {plan.popular && (
+                      <span className="inline-flex items-center gap-1.5 h-5 px-2 rounded-full bg-brand/12 border border-brand/35 text-[10px] font-mono uppercase tracking-[0.16em] text-brand">
+                        <span className="h-1 w-1 rounded-full bg-brand animate-pulse" />
+                        Recommended
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className={cn(
+                        "font-heading text-[40px] leading-none tracking-[-0.035em] font-semibold",
+                        plan.popular ? "text-foreground" : "text-foreground"
+                      )}
+                    >
+                      {plan.price}
+                    </span>
+                    {plan.period && (
+                      <span className="text-[13px] text-muted-foreground">
+                        {plan.period}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-3 text-[13.5px] leading-6 text-muted-foreground">
                     {plan.description}
                   </p>
                 </div>
 
-                <div className="flex-1 space-y-3.5 mb-8 relative z-20">
-                  {plan.features.map((feature, i) => (
-                    <div key={i} className="flex items-start gap-3 group/feature">
-                      <div className="mt-0.5 w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 group-hover/feature:bg-emerald-500 transition-colors duration-300">
-                        <Check className="w-3 h-3 text-emerald-500 group-hover/feature:text-white dark:group-hover/feature:text-black transition-colors duration-300" />
-                      </div>
-                      <span className="text-sm text-muted-foreground group-hover/feature:text-foreground transition-colors">{feature}</span>
-                    </div>
+                <ul className="relative z-20 mt-7 flex-1 space-y-3">
+                  {plan.features.map((feat) => (
+                    <li
+                      key={feat}
+                      className="flex items-start gap-2.5 text-[13.5px]"
+                    >
+                      <span
+                        className={cn(
+                          "mt-[3px] inline-flex h-4 w-4 items-center justify-center rounded-full",
+                          plan.popular ? "bg-brand/20" : "bg-brand/12"
+                        )}
+                      >
+                        <Check className="h-2.5 w-2.5 text-brand" strokeWidth={3} />
+                      </span>
+                      <span className="text-foreground/85">{feat}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
 
-                <Button
-                  className={`w-full h-11 rounded-lg font-bold transition-all duration-300 relative overflow-hidden z-20 ${plan.popular
-                    ? "bg-foreground text-background hover:bg-foreground/90 shadow-lg hover:shadow-xl hover:-translate-y-px"
-                    : "bg-muted hover:bg-accent text-foreground"
-                    }`}
-                >
-                  <span className="relative z-10">{plan.cta}</span>
-                </Button>
+                <div className="relative z-20 mt-8">
+                  <Button
+                    className={cn(
+                      "w-full h-10 rounded-md text-[13.5px] font-medium transition-opacity",
+                      plan.popular
+                        ? "bg-foreground text-background hover:opacity-90"
+                        : "bg-secondary text-foreground hover:bg-secondary/80"
+                    )}
+                  >
+                    {plan.cta}
+                  </Button>
+                </div>
               </CardSpotlight>
             </motion.div>
           ))}

@@ -24,42 +24,99 @@ function validateNumber(value: number, label: string): void {
     }
 }
 
-const generateAssFile = (wordEvents: any[], outputPath: string, style: CaptionStyle = 'default') => {
+// Format seconds → ASS timestamp `H:MM:SS.cs` (single-digit hour, 2-digit centiseconds).
+// libass silently drops malformed lines, so this format must be exact.
+const pad2 = (n: number): string => (n < 10 ? `0${n}` : `${n}`);
+const formatAssTime = (seconds: number): string => {
+    if (!Number.isFinite(seconds) || seconds < 0) seconds = 0;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const cs = Math.floor((seconds - Math.floor(seconds)) * 100);
+    return `${h}:${pad2(m)}:${pad2(s)}.${pad2(cs)}`;
+};
+
+// All style names use a single shared key ("Default") so the Dialogue rows always resolve.
+const STYLE_BLOCKS: Record<CaptionStyle, string> = {
+    // White text, thick black outline, mid-bottom alignment, large readable size for 1080×1920.
+    default:   "Style: Default,Arial,68,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,1,2,40,40,180,1",
+    // Yellow accent with shadow — pops over busy footage.
+    highlight: "Style: Default,Impact,76,&H0000FFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,5,2,2,40,40,180,1",
+    // Cyan/karaoke vibe.
+    karaoke:   "Style: Default,Verdana,70,&H00FFFFFF,&H00FFAA00,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,4,1,2,40,40,180,1",
+};
+
+const generateAssFile = (
+    wordEvents: any[],
+    outputPath: string,
+    style: CaptionStyle = 'default',
+    /** Clip start in source-video seconds. wordEvents are absolute, the trimmed clip starts at 0,
+     *  so we subtract `clipStart` to get caption times relative to the output clip. */
+    clipStart: number = 0,
+    /** Clip duration in seconds — used to clamp/skip events outside the trimmed window. */
+    clipDuration: number = Number.POSITIVE_INFINITY,
+) => {
     if (!wordEvents || !Array.isArray(wordEvents) || wordEvents.length === 0) {
         console.warn("[⚠️] No wordEvents provided for captions.");
         writeFileSync(outputPath, ""); // write empty file or skip
         return;
     }
 
-    const styles: Record<CaptionStyle, string> = {
-        default: "Style: Default,Arial,70,&H00FFFFFF,&H000000FF,&H00222222,&H00000000,-1,0,0,0,100,100,0,0,1,3,1,2,10,10,120,1",
-        highlight: "Style: Highlight,Impact,80,&H0000FFFF,&H000000FF,&H00000000,&H00FFFFFF,-1,0,0,0,100,100,0,0,1,4,2,2,10,10,120,1",
-        karaoke: "Style: Karaoke,Verdana,75,&H00FFFFFF,&H000088FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,3,1,2,10,10,120,1"
-    };
-
     const header = `[Script Info]
 Title: OmniContent AI Captions
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-${styles[style] || styles.default}
+${STYLE_BLOCKS[style] || STYLE_BLOCKS.default}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 `;
 
-    const events = wordEvents.filter(e => e && e.word) // skip invalid
-        .map(event => {
-            const start = new Date(event.start * 1000).toISOString().substr(11, 8) + '.' + (event.start % 1).toFixed(2).substr(2);
-            const end = new Date(event.end * 1000).toISOString().substr(11, 8) + '.' + (event.end % 1).toFixed(2).substr(2);
-            const cleanWord = event.word.replace(/[,.]/g, '').replace(/{/g, '').replace(/}/g, '');
-            return `Dialogue: 0,${start},${end},Default,,0,0,0,,${cleanWord}`;
-        }).join('\n');
+    // Group ~3 words per cue so the screen isn't a flicker-storm of single words.
+    const WORDS_PER_CUE = 3;
+    const cues: { start: number; end: number; text: string }[] = [];
 
-    writeFileSync(outputPath, header + events);
+    const valid = wordEvents.filter(e => e && typeof e.word === 'string' && e.word.trim());
+    for (let i = 0; i < valid.length; i += WORDS_PER_CUE) {
+        const group = valid.slice(i, i + WORDS_PER_CUE);
+        const startAbs = Number(group[0].start);
+        const endAbs   = Number(group[group.length - 1].end);
+        if (!Number.isFinite(startAbs) || !Number.isFinite(endAbs)) continue;
+
+        // Convert absolute → clip-relative.
+        let start = startAbs - clipStart;
+        let end   = endAbs   - clipStart;
+
+        // Skip cues that fall entirely outside the trimmed window.
+        if (end <= 0 || start >= clipDuration) continue;
+        if (start < 0) start = 0;
+        if (end > clipDuration) end = clipDuration;
+        if (end <= start) continue;
+
+        const text = group
+            .map(g => String(g.word)
+                .replace(/[\r\n]+/g, ' ')
+                .replace(/\\/g, '')
+                .replace(/[{}]/g, '')
+                .trim())
+            .filter(Boolean)
+            .join(' ');
+
+        if (!text) continue;
+        cues.push({ start, end, text });
+    }
+
+    const events = cues
+        .map(c => `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${c.text}`)
+        .join('\n');
+
+    writeFileSync(outputPath, header + events + '\n');
 };
 
 export const reformatVideoAndAddCaptions = async (options: {
@@ -87,13 +144,14 @@ export const reformatVideoAndAddCaptions = async (options: {
     const assFilePath = path.join(tempDir, `${outputFileName}.ass`);
     const finalClipPath = path.join(tempDir, `${outputFileName}.mp4`);
 
-    console.log(`[✍️] Generating stylized captions file...`);
-    generateAssFile(wordEvents, assFilePath, captionStyle);
-
     const duration = endTime - startTime;
     if (duration <= 0) {
         throw new Error("Clip duration is zero or negative. Check AI timestamps.");
     }
+
+    console.log(`[✍️] Generating stylized captions file (clipStart=${startTime}s, duration=${duration}s, ${wordEvents?.length ?? 0} words)...`);
+    generateAssFile(wordEvents, assFilePath, captionStyle, startTime, duration);
+
     const ratios = { '9:16': 1080 / 1920, '1:1': 1, '4:5': 1080 / 1350 };
     const targetW = 1080;
     const targetH = Math.round(targetW / ratios[aspectRatio]);

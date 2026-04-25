@@ -1,5 +1,7 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
 import { useEffect } from "react";
 
 export default function Error({
@@ -13,40 +15,41 @@ export default function Error({
         console.error(error);
     }, [error]);
 
-    // Reusing the NotFound component design for consistency, 
-    // but we could customize the text if the NotFound component accepts props.
-    // Since NotFound is currently hardcoded, we'll use it as a fallback UI 
-    // or we can wrap it to inject "Something went wrong" if we modify NotFound.
-
-    // For now, let's assume the user wants the "System Error" aesthetic.
-    // We will modify NotFound to accept props for title/message to make it reusable.
-
     return (
-        <div className="w-full h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-            <div className="text-center space-y-6 max-w-lg px-6">
-                <div className="w-24 h-24 bg-black dark:bg-white mx-auto flex items-center justify-center mb-8 relative group">
-                    <div className="absolute inset-0 border-2 border-black dark:border-white translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform duration-300" />
-                    <span className="text-4xl font-bold text-white dark:text-black font-mono">!</span>
+        <div className="w-full min-h-screen flex items-center justify-center bg-background px-6">
+            <div className="text-center space-y-6 max-w-lg">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-red-500" />
                 </div>
 
                 <div className="space-y-2">
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tighter uppercase">System Malfunction</h1>
-                    <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest">
-                        Critical Error Detected
+                    <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground">
+                        Something went wrong
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        We hit an unexpected error. You can try again or head back home.
                     </p>
                 </div>
 
-                <div className="font-mono text-xs text-red-500 border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 p-4 text-left overflow-auto max-h-32">
-                    {error.message || "Unknown error occurred during operation sequence."}
-                </div>
+                {error.message && (
+                    <div className="text-xs text-red-500 border border-red-500/30 bg-red-500/[0.06] rounded-lg p-3 text-left overflow-auto max-h-32 font-mono">
+                        {error.message}
+                    </div>
+                )}
 
-                <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
                     <button
                         onClick={reset}
-                        className="px-8 py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
+                        className="h-10 px-5 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity active:translate-y-px"
                     >
-                        Reboot System
+                        Try again
                     </button>
+                    <Link
+                        href="/"
+                        className="h-10 inline-flex items-center justify-center px-5 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors"
+                    >
+                        Go home
+                    </Link>
                 </div>
             </div>
         </div>

@@ -1,119 +1,104 @@
 "use client";
 
+import * as React from "react";
 import { motion } from "framer-motion";
-import { Activity, TrendingUp, Users, Zap } from "lucide-react";
 import { NumberTicker } from "@/components/ui/number-ticker";
+import { cn } from "@/lib/utils";
 
+const ease = [0.16, 1, 0.3, 1] as const;
+
+/**
+ * Metrics — a single horizontal stat band with vertical
+ * dividers. Linear's signature stat-band pattern. No card
+ * chrome around the numbers; the dividers do the work.
+ */
 export function MetricsSection() {
-    const metrics = [
-        { icon: Zap, value: 10, suffix: "x", label: "Production Speed", detail: "Ship content 10x faster than manual workflows", decimals: 0 },
-        { icon: TrendingUp, value: 300, suffix: "%", label: "Engagement Uplift", detail: "Average increase in audience interaction", decimals: 0 },
-        { icon: Users, value: 50, suffix: "K+", label: "Active Creators", detail: "Trusted by content professionals globally", decimals: 0 },
-        { icon: Activity, value: 99.8, suffix: "%", label: "Accuracy Rate", detail: "Industry-leading transcription precision", decimals: 1 },
-    ];
+  const metrics = [
+    {
+      value: 10,    suffix: "×",   decimals: 0,
+      label: "Faster shipping",
+      detail: "vs. manual content workflows",
+    },
+    {
+      value: 300,   suffix: "%",   decimals: 0,
+      label: "Engagement uplift",
+      detail: "average across published clips",
+    },
+    {
+      value: 50,    suffix: "k+",  decimals: 0,
+      label: "Active creators",
+      detail: "publishing every week",
+    },
+    {
+      value: 99.8,  suffix: "%",   decimals: 1,
+      label: "Transcription accuracy",
+      detail: "across 40+ languages",
+    },
+  ];
 
-    return (
-        <section className="relative overflow-hidden bg-transparent">
-            <div className="max-w-7xl mx-auto px-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+  return (
+    <section className="section-y">
+      <div className="container-page">
+        <header className="mb-12 md:mb-14 max-w-2xl">
+          <p className="eyebrow mb-3">Performance</p>
+          <h2 className="section-title text-balance">
+            Numbers that move{" "}
+            <span className="text-muted-foreground">the work forward.</span>
+          </h2>
+          <p className="section-lede mt-4 text-balance">
+            Measured across thousands of hours of source video and millions of
+            published assets.
+          </p>
+        </header>
 
-                    {/* Left Column */}
-                    <div className="space-y-8">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border/60 bg-card/50 backdrop-blur-sm">
-                            <Activity className="w-3.5 h-3.5 text-emerald-500" />
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Performance</span>
-                        </div>
-                        <h2 className="section-title">
-                            Data-driven{" "}
-                            <span className="text-muted-foreground/60">content dominance.</span>
-                        </h2>
-                        <p className="section-subtitle">
-                            Our neural engine doesn&apos;t just create content — it optimizes for engagement, retention, and viral potential across every platform.
-                        </p>
-
-                        {/* Metrics Grid */}
-                        <div className="grid grid-cols-2 gap-6 pt-8 border-t border-border/40">
-                            {metrics.map((metric, i) => {
-                                const Icon = metric.icon;
-                                return (
-                                    <motion.div
-                                        key={i}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ duration: 0.5, delay: i * 0.1 }}
-                                        className="space-y-2 group"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <Icon className="w-4 h-4 text-emerald-500/60 group-hover:text-emerald-500 transition-colors" />
-                                            <div className="text-3xl font-bold tracking-tight text-foreground">
-                                                <NumberTicker value={metric.value} suffix={metric.suffix} decimalPlaces={metric.decimals} delay={0.2} />
-                                            </div>
-                                        </div>
-                                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{metric.label}</div>
-                                        <div className="text-xs text-muted-foreground/70 leading-relaxed">{metric.detail}</div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Right Column — Chart */}
-                    <div className="relative">
-                        <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-lg">
-                            {/* Header */}
-                            <div className="flex justify-between items-center p-5 border-b border-border/40">
-                                <div className="text-sm font-medium text-muted-foreground">Growth Vector</div>
-                                <TrendingUp className="w-4 h-4 text-primary" />
-                            </div>
-
-                            {/* Chart Area */}
-                            <div className="p-6 relative h-[280px]">
-                                {/* Grid background */}
-                                <div className="absolute inset-6 opacity-[0.03]">
-                                    <div className="w-full h-full grid grid-cols-7 grid-rows-5">
-                                        {[...Array(35)].map((_, i) => (
-                                            <div key={i} className="border-r border-b border-foreground" />
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Bar Chart */}
-                                <div className="h-full flex items-stretch justify-between gap-2 relative z-10">
-                                    {[40, 55, 48, 70, 62, 85, 95].map((height, i) => (
-                                        <div key={i} className="flex-1 flex flex-col justify-end items-center group">
-                                            <motion.div
-                                                className="w-full bg-primary/70 rounded-t-md relative cursor-pointer hover:bg-primary transition-colors"
-                                                initial={{ height: "0%" }}
-                                                whileInView={{ height: `${height}%` }}
-                                                viewport={{ once: true }}
-                                                transition={{
-                                                    duration: 0.8,
-                                                    delay: i * 0.08,
-                                                    ease: [0.4, 0, 0.2, 1],
-                                                }}
-                                            >
-                                                {/* Tooltip */}
-                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                                    <div className="bg-foreground text-background px-2 py-1 text-[9px] font-mono whitespace-nowrap rounded-md shadow-md">
-                                                        {height}%
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="flex justify-between items-center px-5 py-3 border-t border-border/40 bg-muted/20">
-                                <div className="text-[10px] font-mono text-muted-foreground">Q1 2024</div>
-                                <div className="text-[10px] font-mono text-muted-foreground">Q4 2024</div>
-                            </div>
-                        </div>
-                    </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 border-t border-b border-border">
+          {metrics.map((m, i) => {
+            const isLastCol = i === metrics.length - 1;
+            const isMobileRightCol = i % 2 === 1;
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-40px" }}
+                transition={{ duration: 0.5, ease, delay: i * 0.06 }}
+                className={cn(
+                  "group relative py-8 md:py-10 px-5 md:px-7 transition-colors duration-300",
+                  "hover:bg-muted/30",
+                  // Mobile: 2 cols → only right column gets no right-border
+                  !isMobileRightCol && "border-r border-border",
+                  // Mobile: bottom border on top row only (first 2 items)
+                  i < 2 && "border-b border-border md:border-b-0",
+                  // Desktop: 4 cols → only last item gets no right-border
+                  isLastCol && "md:border-r-0",
+                  // Desktop: ensure all items have a right-border except last
+                  !isLastCol && "md:border-r md:border-border",
+                )}
+              >
+                {/* Active accent rail under hovered metric */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-5 md:inset-x-7 top-0 h-px bg-gradient-to-r from-transparent via-brand to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                />
+                <div className="font-heading text-[44px] md:text-[56px] leading-none tracking-[-0.035em] font-semibold text-foreground">
+                  <NumberTicker
+                    value={m.value}
+                    suffix={m.suffix}
+                    decimalPlaces={m.decimals}
+                    delay={0.1}
+                  />
                 </div>
-            </div>
-        </section>
-    );
+                <div className="mt-3 text-[14px] font-medium text-foreground">
+                  {m.label}
+                </div>
+                <div className="mt-1 text-[13px] text-muted-foreground">
+                  {m.detail}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
 }

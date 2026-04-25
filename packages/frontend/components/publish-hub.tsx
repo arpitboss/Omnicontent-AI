@@ -165,9 +165,6 @@ function ClipPickerDialog({
 
   const isYouTube = platform === "youtube";
   const PlatformIcon = isYouTube ? YouTubeIcon : InstagramIcon;
-  const accentBorder = isYouTube
-    ? "border-[#FF0000]/30 hover:border-[#FF0000]"
-    : "border-[#E4405F]/30 hover:border-[#E4405F]";
 
   const handleClipSelect = async (clip: PublishClip) => {
     if (platform === "instagram") {
@@ -221,53 +218,53 @@ function ClipPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
-        <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className={`w-8 h-8 ${isYouTube ? "bg-[#FF0000]/10 text-[#FF0000]" : "bg-[#E4405F]/10 text-[#E4405F]"} flex items-center justify-center rounded-sm`}>
+      <DialogContent className="sm:max-w-[520px] rounded-2xl border-border bg-card p-0 overflow-hidden">
+        <div className="bg-muted/40 p-6 border-b border-border">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isYouTube ? "bg-[#FF0000]/10 text-[#FF0000]" : "bg-[#E4405F]/10 text-[#E4405F]"}`}>
               <PlatformIcon className="w-4 h-4" />
             </div>
-            <DialogTitle className="font-bold uppercase tracking-widest text-lg">
-              Select Clip
+            <DialogTitle className="font-semibold tracking-tight text-lg">
+              Pick a clip
             </DialogTitle>
           </div>
-          <DialogDescription className="font-mono text-xs text-neutral-500">
+          <DialogDescription className="text-sm text-muted-foreground">
             {isYouTube
-              ? "Choose a clip to upload directly to your YouTube channel as a Short."
+              ? "Choose a clip to upload as a YouTube Short."
               : "Choose a clip to download for Instagram Reels."}
           </DialogDescription>
         </div>
 
-        <div className="p-6 space-y-3 max-h-[400px] overflow-y-auto">
+        <div className="p-5 space-y-2 max-h-[420px] overflow-y-auto">
           {clips.length === 0 ? (
-            <div className="text-center py-8 text-neutral-500">
-              <p className="font-mono text-xs uppercase tracking-widest">No ready clips</p>
+            <div className="text-center py-10 text-muted-foreground">
+              <p className="text-sm">No clips ready yet.</p>
             </div>
           ) : (
             clips.map((clip, index) => (
               <motion.button
                 key={clip._id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: index * 0.04 }}
                 onClick={() => handleClipSelect(clip)}
                 disabled={uploading !== null}
-                className={`w-full text-left p-4 border ${accentBorder} transition-all duration-200 group cursor-pointer disabled:opacity-50 disabled:cursor-wait bg-white dark:bg-black hover:bg-neutral-50 dark:hover:bg-neutral-900`}
+                className="w-full text-left p-4 rounded-xl border border-border bg-card transition-colors duration-200 group cursor-pointer disabled:opacity-50 disabled:cursor-wait hover:border-foreground/20 hover:bg-accent/40"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-8 h-8 flex-shrink-0 flex items-center justify-center border border-neutral-300 dark:border-neutral-700 font-mono text-xs font-bold`}>
+                    <div className="w-8 h-8 flex-shrink-0 rounded-md flex items-center justify-center bg-muted text-foreground/70 text-xs font-medium tabular-nums">
                       {index + 1}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-sm truncate">{clip.title}</p>
-                      <p className="text-xs text-neutral-500 font-mono truncate">{clip.summary}</p>
+                      <p className="text-[14px] font-medium text-foreground truncate">{clip.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{clip.summary}</p>
                     </div>
                   </div>
                   {uploading === clip._id ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-neutral-400 flex-shrink-0" />
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground flex-shrink-0" />
                   ) : (
-                    <ExternalLink className="w-4 h-4 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                    <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
                   )}
                 </div>
               </motion.button>
@@ -306,37 +303,45 @@ function TokenInputDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
-        <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center space-x-3 mb-2">
-            <div className={`w-8 h-8 bg-black/10 dark:bg-white/10 text-black dark:text-white flex items-center justify-center rounded-sm`}>
+      <DialogContent className="sm:max-w-[440px] rounded-2xl border-border bg-card p-0 overflow-hidden">
+        <div className="bg-muted/40 p-6 border-b border-border">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-foreground/10 text-foreground flex items-center justify-center">
               <PlatformIcon className="w-4 h-4" />
             </div>
-            <DialogTitle className="font-bold uppercase tracking-widest text-lg">
+            <DialogTitle className="font-semibold tracking-tight text-lg">
               Connect {platformName}
             </DialogTitle>
           </div>
-          <DialogDescription className="font-mono text-xs text-neutral-500">
-            To connect X/Twitter, enter your GetXAPI token below.
+          <DialogDescription className="text-sm text-muted-foreground">
+            Paste your GetXAPI token to enable direct posting.
           </DialogDescription>
         </div>
 
         <div className="p-6 space-y-4">
-          <Input 
-            placeholder="Enter your API Token" 
-            value={tokenValue} 
+          <Input
+            placeholder="Paste API token"
+            value={tokenValue}
             onChange={(e) => onTokenChange(e.target.value)}
             disabled={saving}
-            className="w-full font-mono text-xs p-3 rounded-none focus-visible:ring-emerald-500"
+            className="w-full text-sm rounded-md focus-visible:ring-1 focus-visible:ring-brand/50 focus-visible:border-brand/40"
           />
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end gap-2 pt-1">
             <Button
-              className="rounded-none bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-500 dark:hover:bg-emerald-400 dark:text-black font-mono text-xs uppercase tracking-widest px-6"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              className="rounded-md border-border hover:bg-accent"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-md bg-foreground text-background hover:opacity-90 px-5"
               onClick={onSave}
               disabled={saving || !tokenValue.trim()}
             >
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              {saving ? "Connecting..." : "Connect Account"}
+              {saving ? "Connecting…" : "Connect"}
             </Button>
           </div>
         </div>
@@ -372,45 +377,41 @@ function AccountManagerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
-        <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
-          <DialogTitle className="font-bold uppercase tracking-widest text-lg flex items-center gap-2">
-            <Settings className="w-5 h-5" /> Manage Accounts
+      <DialogContent className="sm:max-w-[480px] rounded-2xl border-border bg-card p-0 overflow-hidden">
+        <div className="bg-muted/40 p-6 border-b border-border">
+          <DialogTitle className="font-semibold tracking-tight text-lg flex items-center gap-2">
+            <Settings className="w-4 h-4 text-muted-foreground" /> Connected accounts
           </DialogTitle>
-          <DialogDescription className="font-mono text-xs text-neutral-500 mt-1">
-            Connect your accounts for one-click direct publishing.
+          <DialogDescription className="text-sm text-muted-foreground mt-1.5">
+            Connect once and publish anywhere with a single click.
           </DialogDescription>
         </div>
 
-        <div className="p-6 space-y-2">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-400 mb-3">
-            Direct Publishing — Connect Once, Publish Forever
-          </p>
-          <div className="space-y-2">
-            {allPlatforms.map((p) => {
+        <div className="p-5 space-y-2">
+          {allPlatforms.map((p) => {
               const connected = accounts.find((a) => a.platform === p.id);
               const Icon = p.icon;
               return (
                 <div
                   key={p.id}
-                  className={`flex items-center justify-between p-4 border transition-all ${
+                  className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
                     connected
-                      ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/10"
-                      : "border-neutral-200 dark:border-neutral-800"
+                      ? "border-[var(--accent-500)]/30 bg-[var(--accent-500)]/[0.06]"
+                      : "border-border bg-card"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-8 h-8 ${p.bg} flex items-center justify-center rounded-sm`}>
+                    <div className={`w-9 h-9 ${p.bg} flex items-center justify-center rounded-lg`}>
                       <Icon className={`w-4 h-4 ${p.color}`} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold">{p.name}</p>
+                      <p className="text-[14px] font-medium">{p.name}</p>
                       {connected ? (
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1">
+                        <p className="text-xs text-[var(--accent-500)] flex items-center gap-1">
                           <Check className="w-3 h-3" /> {connected.profileName}
                         </p>
                       ) : (
-                        <p className="text-[10px] text-neutral-500 font-mono">{p.desc}</p>
+                        <p className="text-xs text-muted-foreground">{p.desc}</p>
                       )}
                     </div>
                   </div>
@@ -420,9 +421,9 @@ function AccountManagerDialog({
                       size="sm"
                       disabled={disconnecting === p.id}
                       onClick={() => onDisconnect(p.id)}
-                      className="rounded-none text-xs font-mono text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      className="rounded-md text-xs text-red-500 hover:text-red-600 hover:bg-red-500/10"
                     >
-                      {disconnecting === p.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unplug className="w-3 h-3 mr-1" />}
+                      {disconnecting === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unplug className="w-3.5 h-3.5 mr-1.5" />}
                       Disconnect
                     </Button>
                   ) : (
@@ -431,16 +432,15 @@ function AccountManagerDialog({
                       size="sm"
                       disabled={connecting !== null}
                       onClick={() => onConnect(p.id)}
-                      className="rounded-none text-xs font-mono border-neutral-300 dark:border-neutral-700 hover:border-emerald-500 hover:text-emerald-600"
+                      className="rounded-md text-xs border-border hover:border-foreground/30 hover:bg-accent"
                     >
-                      {connecting === p.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Link2 className="w-3 h-3 mr-1" />}
+                      {connecting === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Link2 className="w-3.5 h-3.5 mr-1.5" />}
                       Connect
                     </Button>
                   )}
                 </div>
               );
             })}
-          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -672,12 +672,8 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
     }
   };
 
-  // ─── Direct Publish: Instagram ───
+  // ─── Direct Publish: Instagram (workaround — just download) ───
   const handleInstagramPublish = () => {
-    if (!isConnected("instagram")) {
-      handleConnect("instagram");
-      return;
-    }
     if (!hasVideoContent) {
       toast.error("No video clips are ready yet.");
       return;
@@ -704,8 +700,8 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
       id: "twitter",
       name: "X / Twitter",
       icon: XTwitterIcon,
-      color: "text-neutral-900 dark:text-neutral-100",
-      hoverBg: "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+      color: "text-foreground",
+      hoverBg: "hover:bg-accent",
       type: "direct" as const,
       action: handleTwitterPublish,
       disabled: !content.twitterThread?.length,
@@ -716,8 +712,8 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
       id: "medium",
       name: "Medium",
       icon: MediumIcon,
-      color: "text-neutral-900 dark:text-neutral-100",
-      hoverBg: "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+      color: "text-foreground",
+      hoverBg: "hover:bg-accent",
       type: "workaround" as const,
       action: handleMediumPublish,
       disabled: !(content.blogPost || content.generatedContent),
@@ -759,11 +755,14 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button className="rounded-none bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-black dark:hover:bg-emerald-400 font-mono text-xs uppercase tracking-widest h-9 px-5 transition-all duration-300 shadow-md hover:shadow-emerald-500/25 cursor-pointer group">
-            <Send className="mr-2 h-3 w-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          <Button
+            size="sm"
+            className="rounded-lg bg-foreground text-background hover:opacity-90 text-[12.5px] font-medium h-9 px-4 transition-opacity active:translate-y-px"
+          >
+            <Send className="mr-2 h-3.5 w-3.5" />
             Publish
             {publishedCount > 0 && (
-              <span className="ml-2 bg-white/25 dark:bg-black/25 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+              <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] text-[10.5px] px-1 rounded-full bg-[var(--accent-500)]/20 text-[var(--accent-500)] font-medium">
                 {publishedCount}
               </span>
             )}
@@ -773,23 +772,21 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
         <DropdownMenuContent
           side="bottom"
           align="end"
-          className="rounded-none border-neutral-200 dark:border-neutral-800 min-w-[280px] p-0 z-50 bg-white dark:bg-black"
+          className="rounded-xl border-border min-w-[300px] p-0 z-50 bg-card overflow-hidden shadow-lg"
         >
           {/* Connected indicator */}
           {connectedCount > 0 && (
-            <>
-              <div className="px-4 py-2 bg-emerald-50/80 dark:bg-emerald-950/20 border-b border-emerald-200 dark:border-emerald-900">
-                <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  {connectedCount} account{connectedCount > 1 ? "s" : ""} connected — direct publishing enabled
-                </p>
-              </div>
-            </>
+            <div className="px-4 py-2.5 bg-[var(--accent-500)]/[0.06] border-b border-border">
+              <p className="text-xs text-[var(--accent-500)] flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                {connectedCount} account{connectedCount > 1 ? "s" : ""} connected
+              </p>
+            </div>
           )}
 
           {/* Text Platforms */}
-          <DropdownMenuLabel className="px-4 pt-3 pb-1 font-mono text-[10px] uppercase tracking-widest text-neutral-400">
-            Text Content
+          <DropdownMenuLabel className="px-4 pt-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Text content
           </DropdownMenuLabel>
 
           {textItems.map((item) => {
@@ -799,7 +796,7 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
                 key={item.id}
                 disabled={item.disabled || publishing === item.id}
                 onClick={item.action}
-                className={`rounded-none px-4 py-3 cursor-pointer transition-all duration-200 ${item.hoverBg} ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                className={`rounded-none px-4 py-3 cursor-pointer transition-colors ${item.hoverBg} ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
@@ -807,29 +804,28 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                      <p className="text-[13.5px] font-medium flex items-center gap-1.5">
                         {item.name}
                         {item.connected && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-500)]" />
                         )}
                       </p>
-                      <p className="text-[10px] text-neutral-500 font-mono">
-                        {item.connected ? "Direct post" : item.type === "workaround" ? "Smart share" : "Connect to post"}
+                      <p className="text-[11.5px] text-muted-foreground">
+                        {item.connected ? "Direct post" : item.type === "workaround" ? "Copy & open" : "Connect to post"}
                       </p>
                     </div>
                   </div>
                   {publishing === item.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                   ) : item.published ? (
-                    <div className="flex items-center gap-1 text-emerald-500">
-                      <Check className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold">POSTED</span>
-                    </div>
+                    <span className="inline-flex items-center gap-1 text-[var(--accent-500)] text-[11px] font-medium">
+                      <Check className="w-3.5 h-3.5" /> Posted
+                    </span>
                   ) : !item.disabled ? (
                     item.connected ? (
-                      <Send className="w-3.5 h-3.5 text-neutral-400" />
+                      <Send className="w-3.5 h-3.5 text-muted-foreground" />
                     ) : (
-                      <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
+                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                     )
                   ) : null}
                 </div>
@@ -837,13 +833,13 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
             );
           })}
 
-          <DropdownMenuSeparator className="bg-neutral-200 dark:bg-neutral-800 my-0" />
+          <DropdownMenuSeparator className="bg-border my-0" />
 
           {/* Video Platforms */}
-          <DropdownMenuLabel className="px-4 pt-3 pb-1 font-mono text-[10px] uppercase tracking-widest text-neutral-400">
-            Video Clips
+          <DropdownMenuLabel className="px-4 pt-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-2">
+            <span>Video clips</span>
             {hasVideoContent && (
-              <span className="ml-2 text-emerald-500">{readyClips.length} ready</span>
+              <span className="text-[var(--accent-500)] normal-case tracking-normal">{readyClips.length} ready</span>
             )}
           </DropdownMenuLabel>
 
@@ -854,7 +850,7 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
                 key={item.id}
                 disabled={item.disabled || publishing === item.id}
                 onClick={item.action}
-                className={`rounded-none px-4 py-3 cursor-pointer transition-all duration-200 ${item.hoverBg} ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                className={`rounded-none px-4 py-3 cursor-pointer transition-colors ${item.hoverBg} ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
               >
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
@@ -862,29 +858,28 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                      <p className="text-[13.5px] font-medium flex items-center gap-1.5">
                         {item.name}
                         {item.connected && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-500)]" />
                         )}
                       </p>
-                      <p className="text-[10px] text-neutral-500 font-mono">
+                      <p className="text-[11.5px] text-muted-foreground">
                         {item.connected ? "Direct upload" : item.type === "workaround" ? "Download clip" : "Connect to upload"}
                       </p>
                     </div>
                   </div>
                   {publishing === item.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                   ) : item.published ? (
-                    <div className="flex items-center gap-1 text-emerald-500">
-                      <Check className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-mono font-bold">POSTED</span>
-                    </div>
+                    <span className="inline-flex items-center gap-1 text-[var(--accent-500)] text-[11px] font-medium">
+                      <Check className="w-3.5 h-3.5" /> Posted
+                    </span>
                   ) : !item.disabled ? (
                     item.connected ? (
-                      <Send className="w-3.5 h-3.5 text-neutral-400" />
+                      <Send className="w-3.5 h-3.5 text-muted-foreground" />
                     ) : (
-                      <ExternalLink className="w-3.5 h-3.5 text-neutral-400" />
+                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                     )
                   ) : null}
                 </div>
@@ -892,16 +887,16 @@ export function PublishHub({ content, onPublished }: PublishHubProps) {
             );
           })}
 
-          <DropdownMenuSeparator className="bg-neutral-200 dark:bg-neutral-800 my-0" />
+          <DropdownMenuSeparator className="bg-border my-0" />
 
           {/* Manage Accounts */}
           <DropdownMenuItem
             onClick={() => setAccountsDialogOpen(true)}
-            className="rounded-none px-4 py-3 cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-900"
+            className="rounded-none px-4 py-3 cursor-pointer hover:bg-accent"
           >
             <div className="flex items-center gap-3 w-full">
-              <Settings className="w-4 h-4 text-neutral-400" />
-              <p className="text-sm font-mono text-neutral-500">Manage Accounts</p>
+              <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-[13px] text-muted-foreground">Manage connected accounts</p>
             </div>
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ReactPlayer from "react-player";
@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import useSWR from "swr";
 
 import { CopyButton } from '@/components/copy-button';
+import { ClipPreview } from '@/components/clip-preview';
+import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { PublishHub } from "@/components/publish-hub";
 import { ArticleSkeleton, LinkedInSkeleton, TwitterSkeleton } from "@/components/skeletons";
@@ -44,6 +46,7 @@ import {
   BadgeCheck,
   Clock,
   Download,
+  ExternalLink,
   FileText,
   Heart,
   Languages,
@@ -128,8 +131,18 @@ interface TranslationData {
 // ---------------- Utils ----------------
 const fetcher = async (url: string, getToken: () => Promise<string | null>) => {
   const token = await getToken();
+  if (!token) {
+    throw new Error("Not signed in (Clerk did not return a token).");
+  }
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error("An error occurred while fetching the data.");
+  if (!res.ok) {
+    let body = "";
+    try { body = await res.text(); } catch { /* ignore */ }
+    // Surface the real status so we can debug auth/CORS issues
+    // (e.g. 401 = Clerk token rejected by backend → key mismatch)
+    console.error(`[dashboard] GET ${url} → ${res.status}`, body);
+    throw new Error(`Backend responded ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
   return res.json();
 };
 
@@ -211,22 +224,6 @@ const BlogImageRenderer = ({ src }: { src: string }) => {
 
 // ---------------- Animation Components ----------------
 
-const ReadingProgress = () => {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
-    restDelta: 0.001
-  });
-
-  return (
-    <motion.div
-      className="fixed top-0 left-0 right-0 h-1 bg-blue-600 origin-left z-50"
-      style={{ scaleX }}
-    />
-  );
-};
-
 const ScrollReveal = ({ children }: { children: React.ReactNode }) => {
   return (
     <motion.div
@@ -289,57 +286,70 @@ const ContentDisplayCard = ({
     }
   }, [content, startAnimation, showImmediately, showTranslation, currentTranslation]);
 
+  let sourceLabel = content.sourceUrl;
+  try {
+    sourceLabel = new URL(content.sourceUrl).hostname.replace(/^www\./, '');
+  } catch { /* fall back to raw URL */ }
+
   return (
-    <div className="relative border border-border bg-card rounded-2xl p-6 group transition-all duration-300 hover:border-foreground/20 hover:shadow-xl">
+    <div className="relative border border-border bg-card rounded-2xl p-5 transition-colors duration-200 hover:border-foreground/20">
 
       {/* ---- Header ---- */}
-      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-border pb-4 transition-colors duration-300">
-        <div>
-          <div className="mb-2">
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border transition-all ${content.status === 'COMPLETE'
-                ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+      <div className="flex flex-col md:flex-row justify-between items-start gap-3 mb-5 border-b border-border pb-4">
+        <div className="min-w-0">
+          <div className="mb-3">
+            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${content.status === 'COMPLETE'
+                ? 'border-[var(--accent-500)]/30 text-[var(--accent-500)] bg-[var(--accent-500)]/10'
                 : content.status === 'FAILED'
-                  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
-                  : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 animate-pulse'
+                  ? 'border-red-500/30 text-red-500 bg-red-500/10'
+                  : 'border-amber-500/30 text-amber-500 bg-amber-500/10'
               }`}>
-              {content.status.replace(/_/g, ' ')}
+              <span className={`w-1.5 h-1.5 rounded-full ${content.status === 'COMPLETE' ? 'bg-[var(--accent-500)]' : content.status === 'FAILED' ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
+              {content.status === 'COMPLETE' ? 'Ready' : content.status === 'FAILED' ? 'Failed' : 'Processing'}
             </span>
           </div>
-          <h3 className="text-2xl font-bold tracking-tight mb-2">
-            {content.generatedTitle || "Processing Data Stream..."}
+          <h3 className="text-2xl font-semibold tracking-tight mb-3 text-foreground">
+            {content.generatedTitle || "Untitled project"}
           </h3>
-          <p className="text-sm text-muted-foreground font-mono flex items-center">
-            <span className="w-2 h-2 bg-muted-foreground/30 rounded-full mr-2 group-hover:bg-foreground/50 transition-colors" />
-            SOURCE: <a href={`${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
-          </p>
+          <a
+            href={content.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-muted/40 hover:bg-muted hover:border-foreground/20 transition-colors text-xs text-muted-foreground hover:text-foreground max-w-full"
+          >
+            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+            <span className="truncate">{sourceLabel}</span>
+          </a>
         </div>
 
-        <div className="flex items-center space-x-2 mt-4 md:mt-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="rounded-lg font-mono text-xs hover:bg-accent mr-2 transition-colors"
+            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent text-xs h-9"
             onClick={onExport}
           >
-            <Download className="mr-2 h-3 w-3" /> Export
+            <Download className="mr-2 h-3.5 w-3.5" /> Export
           </Button>
 
           {currentTranslation && (
             <Button
               variant="outline"
-              className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent transition-all"
+              size="sm"
+              className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent text-xs h-9"
               onClick={() => setShowTranslation(!showTranslation)}
             >
               {showTranslation ? "Original" : "Translation"}
             </Button>
           )}
           <Button
-            variant={currentTranslation ? "ghost" : "outline"}
-            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent transition-all"
+            variant="outline"
+            size="sm"
+            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent text-xs h-9"
             onClick={() => onTranslateOpen(content._id)}
           >
-            <Zap className="mr-2 h-4 w-4" />
-            {currentTranslation ? "Change Lang" : "Translate"}
+            <Languages className="mr-2 h-3.5 w-3.5" />
+            {currentTranslation ? "Change" : "Translate"}
           </Button>
 
           {content.status === 'COMPLETE' && (
@@ -349,15 +359,11 @@ const ContentDisplayCard = ({
       </div>
 
       {/* ---- Content ---- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---- Left Column ---- */}
-        < div className="lg:col-span-1 space-y-6" >
-          <div className="flex items-center space-x-2 mb-2">
-            <Activity className="w-4 h-4 text-primary" />
-            <h4 className="font-bold text-sm uppercase tracking-widest">Source Feed</h4>
-          </div>
+        < div className="lg:col-span-1 space-y-4" >
+          <h4 className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Source video</h4>
           <div className="aspect-video overflow-hidden border border-border rounded-xl bg-black relative">
-            <div className="absolute inset-0 bg-grid-white/[0.05] pointer-events-none" />
             <ReactPlayer
               src={`${content.sourceUrl}`}
               width="100%"
@@ -366,70 +372,60 @@ const ContentDisplayCard = ({
             />
           </div>
 
-          <div className="flex items-center justify-between border-b border-border pb-2">
-            <h4 className="font-bold text-sm uppercase tracking-widest">Executive Summary</h4>
-            <CopyButton textToCopy={content.summary || ''} />
-          </div>
-          <div className="font-mono text-sm leading-relaxed text-muted-foreground">
-            <TypewriterText
-              id={`${content._id}-summary-${showTranslation ? 'translated' : 'original'}`}
-              text={
-                showTranslation && currentTranslation?.summary
-                  ? currentTranslation.summary
-                  : content.summary || ""
-              }
-            />
+          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Summary</h4>
+              <CopyButton textToCopy={content.summary || ''} />
+            </div>
+            <div className="text-sm leading-relaxed text-foreground/80">
+              <TypewriterText
+                id={`${content._id}-summary-${showTranslation ? 'translated' : 'original'}`}
+                text={
+                  showTranslation && currentTranslation?.summary
+                    ? currentTranslation.summary
+                    : content.summary || ""
+                }
+              />
+            </div>
           </div>
         </div >
 
         {/* ---- Right Column ---- */}
         < div className="lg:col-span-2" >
           <Tabs defaultValue="article" className="w-full">
-            <TabsList className="w-full grid grid-cols-4 rounded-none border-b border-border bg-transparent p-0 mb-6">
-              <TabsTrigger
-                value="article"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
-              >
-                Article
-              </TabsTrigger>
-              <TabsTrigger
-                value="social"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
-              >
-                Social
-              </TabsTrigger>
-              <TabsTrigger
-                value="clips"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
-              >
-                Clips
-              </TabsTrigger>
-              <TabsTrigger
-                value="transcript"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
-              >
-                Transcript
-              </TabsTrigger>
+            <TabsList className="w-full grid grid-cols-4 rounded-none border-b border-border bg-transparent p-0 mb-4">
+              {[
+                { value: 'article', label: 'Article' },
+                { value: 'social', label: 'Social' },
+                { value: 'clips', label: 'Clips' },
+                { value: 'transcript', label: 'Transcript' },
+              ].map(t => (
+                <TabsTrigger
+                  key={t.value}
+                  value={t.value}
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--accent-500)] data-[state=active]:text-foreground h-11 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                >
+                  {t.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             {/* --- Article Tab --- */}
             <TabsContent
               value="article"
-              className="mt-0 bg-card border border-border rounded-xl p-0 min-h-[800px]"
+              className="mt-0 bg-card border border-border rounded-xl p-0 min-h-[600px]"
             >
               {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                 <ArticleSkeleton />
               ) : (
-                <>
-                  <ReadingProgress />
-                  <motion.div
+                <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="max-w-[720px] mx-auto py-16 px-6"
+                    className="max-w-[720px] mx-auto py-10 px-6"
                   >
                     {/* Hero Image */}
-                    <div className="mb-12 relative aspect-video w-full overflow-hidden rounded-md shadow-sm">
+                    <div className="mb-8 relative aspect-video w-full overflow-hidden rounded-md shadow-sm">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`https://image.pollinations.ai/prompt/${encodeURIComponent((content.generatedTitle || "abstract") + " cinematic, photorealistic, 4k, dramatic lighting, no text")}?width=1280&height=720&nologo=true`}
@@ -439,18 +435,18 @@ const ContentDisplayCard = ({
                     </div>
 
                     {/* Title Area */}
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 mb-8 mt-16 font-sans leading-tight">
-                      {content.generatedTitle || "Untitled Draft"}
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-6 mt-8 font-sans leading-tight">
+                      {content.generatedTitle || "Untitled draft"}
                     </h1>
 
                     {/* Author/Meta */}
-                    <div className="flex items-center space-x-4 mb-12 border-b border-neutral-100 dark:border-neutral-800 pb-8">
-                      <div className="w-12 h-12 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center">
-                        <Zap className="w-6 h-6 text-neutral-500" />
+                    <div className="flex items-center space-x-4 mb-8 border-b border-border pb-6">
+                      <div className="w-10 h-10 rounded-full bg-[var(--accent-500)]/15 flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-[var(--accent-500)]" />
                       </div>
                       <div>
-                        <div className="font-sans font-medium text-neutral-900 dark:text-neutral-100">OmniAgent AI</div>
-                        <div className="font-sans text-sm text-neutral-500">
+                        <div className="font-sans font-medium text-foreground">OmniContent AI</div>
+                        <div className="font-sans text-sm text-muted-foreground">
                           {new Date(content.createdAt).toLocaleDateString()} · 5 min read
                         </div>
                       </div>
@@ -476,41 +472,41 @@ const ContentDisplayCard = ({
                             // Medium style paragraph: Serif, large, relaxed, proper spacing
                             return (
                               <ScrollReveal>
-                                <p {...props} className="font-serif text-[20px] leading-[32px] text-[#242424] dark:text-[#e5e5e5] mb-10" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
+                                <p {...props} className="font-serif text-[19px] leading-[30px] text-[#242424] dark:text-[#e5e5e5] mb-6" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
                               </ScrollReveal>
                             );
                           },
                           h1: ({ ...props }) => (
                             <ScrollReveal>
-                              <h1 {...props} className="font-sans font-bold text-3xl md:text-4xl mb-8 mt-16 text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight" />
+                              <h1 {...props} className="font-sans font-bold text-2xl md:text-3xl mb-5 mt-10 text-foreground tracking-tight leading-tight" />
                             </ScrollReveal>
                           ),
                           h2: ({ ...props }) => (
                             <ScrollReveal>
-                              <h2 {...props} className="font-sans font-bold text-2xl md:text-3xl mb-6 mt-14 text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight" />
+                              <h2 {...props} className="font-sans font-bold text-xl md:text-2xl mb-4 mt-9 text-foreground tracking-tight leading-tight" />
                             </ScrollReveal>
                           ),
                           h3: ({ ...props }) => (
                             <ScrollReveal>
-                              <h3 {...props} className="font-sans font-bold text-xl md:text-2xl mb-4 mt-12 text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight" />
+                              <h3 {...props} className="font-sans font-bold text-lg md:text-xl mb-3 mt-7 text-foreground tracking-tight leading-tight" />
                             </ScrollReveal>
                           ),
                           blockquote: ({ ...props }) => (
                             <ScrollReveal>
-                              <blockquote {...props} className="border-l-[3px] border-neutral-900 dark:border-neutral-100 pl-6 italic text-[22px] leading-relaxed text-neutral-700 dark:text-neutral-300 my-14 font-serif" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
+                              <blockquote {...props} className="border-l-[3px] border-foreground pl-5 italic text-[20px] leading-relaxed text-foreground/80 my-8 font-serif" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
                             </ScrollReveal>
                           ),
                           ul: ({ ...props }) => (
                             <ScrollReveal>
-                              <ul {...props} className="list-disc pl-6 mb-10 space-y-3 font-serif text-[20px] leading-[32px] text-neutral-800 dark:text-neutral-200" />
+                              <ul {...props} className="list-disc pl-6 mb-6 space-y-2 font-serif text-[19px] leading-[30px] text-foreground/85" />
                             </ScrollReveal>
                           ),
                           ol: ({ ...props }) => (
                             <ScrollReveal>
-                              <ol {...props} className="list-decimal pl-6 mb-10 space-y-3 font-serif text-[20px] leading-[32px] text-neutral-800 dark:text-neutral-200" />
+                              <ol {...props} className="list-decimal pl-6 mb-6 space-y-2 font-serif text-[19px] leading-[30px] text-foreground/85" />
                             </ScrollReveal>
                           ),
-                          li: ({ ...props }) => <li {...props} className="pl-2" />,
+                          li: ({ ...props }) => <li {...props} className="pl-1" />,
                         }}
                         text={
                           showTranslation && currentTranslation?.blog
@@ -520,7 +516,6 @@ const ContentDisplayCard = ({
                       />
                     </article>
                   </motion.div>
-                </>
               )}
             </TabsContent>
 
@@ -530,13 +525,13 @@ const ContentDisplayCard = ({
                 <TabsList className="flex w-full justify-center space-x-6 border-b border-border bg-transparent p-0 mb-6">
                   <TabsTrigger
                     value="linkedin"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#0a66c2] data-[state=active]:text-[#0a66c2] h-10 px-4 font-bold text-sm hover:text-[#0a66c2] transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--accent-500)] data-[state=active]:text-foreground h-10 px-4 font-medium text-sm text-muted-foreground hover:text-foreground transition-colors data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
                   >
                     LinkedIn
                   </TabsTrigger>
                   <TabsTrigger
                     value="twitter"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-black dark:data-[state=active]:border-white h-10 px-4 font-bold text-sm hover:text-black dark:hover:text-white transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-[var(--accent-500)] data-[state=active]:text-foreground h-10 px-4 font-medium text-sm text-muted-foreground hover:text-foreground transition-colors data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
                   >
                     X / Twitter
                   </TabsTrigger>
@@ -544,7 +539,7 @@ const ContentDisplayCard = ({
 
                 <TabsContent
                   value="linkedin"
-                  className="p-0 bg-[#f3f2ef] dark:bg-card border border-border rounded-xl"
+                  className="p-0 bg-muted/30 border border-border rounded-xl"
                 >
                   {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                     <LinkedInSkeleton />
@@ -553,25 +548,24 @@ const ContentDisplayCard = ({
                       initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.4 }}
-                      className="bg-white dark:bg-card p-4 rounded-xl shadow-sm border border-border max-w-[555px] mx-auto my-8"
+                      className="bg-card p-4 rounded-xl shadow-sm border border-border max-w-[555px] mx-auto my-8"
                     >
                       {/* Header */}
                       <div className="flex items-start mb-3">
-                        <div className="w-12 h-12 rounded-full bg-neutral-200 dark:bg-neutral-700 mr-3 overflow-hidden">
-                          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl">OA</div>
+                        <div className="w-12 h-12 rounded-full bg-muted mr-3 overflow-hidden">
+                          <div className="w-full h-full bg-gradient-to-br from-[var(--accent-500)] to-[var(--accent-700)] flex items-center justify-center text-white font-semibold text-lg">OA</div>
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="font-semibold text-sm text-neutral-900 dark:text-white leading-tight hover:text-blue-600 hover:underline cursor-pointer">OmniAgent AI</h3>
-                              <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-tight">Autonomous Content Architect</p>
-                              <div className="flex items-center text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                                <span>1h • </span>
-                                <span className="ml-1">🌐</span>
+                              <h3 className="font-semibold text-sm text-foreground leading-tight hover:text-[var(--accent-500)] hover:underline cursor-pointer">OmniAgent AI</h3>
+                              <p className="text-xs text-muted-foreground leading-tight">Autonomous Content Architect</p>
+                              <div className="flex items-center text-xs text-muted-foreground mt-0.5">
+                                <span>1h • 🌐</span>
                               </div>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-neutral-500">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
                                 <MoreHorizontal className="w-5 h-5" />
                               </Button>
                             </div>
@@ -580,7 +574,7 @@ const ContentDisplayCard = ({
                       </div>
 
                       {/* Content */}
-                      <div className="text-sm text-neutral-900 dark:text-neutral-100 leading-relaxed whitespace-pre-wrap font-sans mb-4">
+                      <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-sans mb-4">
                         <TypewriterText
                           id={`${content._id}-linkedin-${showTranslation ? 'translated' : 'original'}`}
                           text={
@@ -597,20 +591,20 @@ const ContentDisplayCard = ({
                       </div>
 
                       {/* Footer Actions (Visual Only) */}
-                      <div className="border-t border-neutral-200 dark:border-neutral-700 pt-1 flex justify-between items-center px-2">
-                        <motion.div whileHover={{ scale: 1.05, backgroundColor: "rgba(0,0,0,0.05)" }} whileTap={{ scale: 0.95 }} className="flex items-center space-x-2 text-neutral-500 px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                      <div className="border-t border-border pt-1 flex justify-between items-center px-2">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <ThumbsUp className="w-5 h-5" />
                           <span className="text-sm font-semibold">Like</span>
                         </motion.div>
-                        <motion.div whileHover={{ scale: 1.05, backgroundColor: "rgba(0,0,0,0.05)" }} whileTap={{ scale: 0.95 }} className="flex items-center space-x-2 text-neutral-500 px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <MessageSquare className="w-5 h-5" />
                           <span className="text-sm font-semibold">Comment</span>
                         </motion.div>
-                        <motion.div whileHover={{ scale: 1.05, backgroundColor: "rgba(0,0,0,0.05)" }} whileTap={{ scale: 0.95 }} className="flex items-center space-x-2 text-neutral-500 px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <Repeat className="w-5 h-5" />
                           <span className="text-sm font-semibold">Repost</span>
                         </motion.div>
-                        <motion.div whileHover={{ scale: 1.05, backgroundColor: "rgba(0,0,0,0.05)" }} whileTap={{ scale: 0.95 }} className="flex items-center space-x-2 text-neutral-500 px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <Send className="w-5 h-5" />
                           <span className="text-sm font-semibold">Send</span>
                         </motion.div>
@@ -628,13 +622,13 @@ const ContentDisplayCard = ({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-full font-bold text-xs"
+                          className="rounded-md border-border text-xs h-9 hover:bg-accent"
                           onClick={() => {
                             navigator.clipboard.writeText(content.twitterThread?.join('\n\n') || '');
                             toast.success("Thread copied to clipboard");
                           }}
                         >
-                          Copy Full Thread
+                          Copy full thread
                         </Button>
                       </div>
 
@@ -648,30 +642,30 @@ const ContentDisplayCard = ({
                         >
                           {/* Connecting Line */}
                           {index !== (content.twitterThread.length - 1) && (
-                            <div className="absolute left-[34px] top-[50px] bottom-0 w-[2px] bg-neutral-200 dark:bg-neutral-800 group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700 transition-colors" />
+                            <div className="absolute left-[34px] top-[50px] bottom-0 w-[2px] bg-border group-hover:bg-foreground/20 transition-colors" />
                           )}
 
-                          <div className="flex items-start space-x-3 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors rounded-xl">
+                          <div className="flex items-start space-x-3 p-4 hover:bg-accent/40 transition-colors rounded-xl">
                             <div className="relative z-10">
-                              <div className="w-10 h-10 rounded-full bg-black dark:bg-white flex items-center justify-center text-white dark:text-black font-bold border-2 border-white dark:border-black">
+                              <div className="w-10 h-10 rounded-full bg-foreground flex items-center justify-center text-background font-bold border-2 border-background">
                                 OA
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center space-x-1">
-                                  <span className="font-bold text-neutral-900 dark:text-neutral-100 text-[15px]">OmniAgent</span>
-                                  <BadgeCheck className="w-4 h-4 text-blue-500 fill-blue-500 text-white" />
-                                  <span className="text-neutral-500 text-[15px] ml-1">@omni_ai</span>
-                                  <span className="text-neutral-500 text-[15px]">·</span>
-                                  <span className="text-neutral-500 text-[15px] hover:underline cursor-pointer">{index + 1}m</span>
+                                  <span className="font-bold text-foreground text-[15px]">OmniAgent</span>
+                                  <BadgeCheck className="w-4 h-4 fill-blue-500 text-background" />
+                                  <span className="text-muted-foreground text-[15px] ml-1">@omni_ai</span>
+                                  <span className="text-muted-foreground text-[15px]">·</span>
+                                  <span className="text-muted-foreground text-[15px] hover:underline cursor-pointer">{index + 1}m</span>
                                 </div>
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                                   <CopyButton textToCopy={tweet.replace(/^\d+\/\s*/, '')} />
                                 </div>
                               </div>
 
-                              <div className="text-neutral-900 dark:text-neutral-100 leading-normal text-[15px] whitespace-pre-wrap font-sans">
+                              <div className="text-foreground leading-normal text-[15px] whitespace-pre-wrap font-sans">
                                 <TypewriterText
                                   id={`${content._id}-tweet-${index}-${showTranslation ? 'translated' : 'original'}`}
                                   text={
@@ -684,7 +678,7 @@ const ContentDisplayCard = ({
                               </div>
 
                               {/* Tweet Actions (Visual) */}
-                              <div className="flex justify-between max-w-[425px] mt-3 text-neutral-500">
+                              <div className="flex justify-between max-w-[425px] mt-3 text-muted-foreground">
                                 <motion.button
                                   whileHover={{ scale: 1.1, color: "#3b82f6" }}
                                   whileTap={{ scale: 0.9 }}
@@ -743,14 +737,14 @@ const ContentDisplayCard = ({
             {/* --- Clips Tab --- */}
             <TabsContent
               value="clips"
-              className="mt-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 p-6 border border-border rounded-xl bg-muted/30"
+              className="mt-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 p-4 border border-border rounded-xl bg-muted/30"
             >
               {(!content.clips || content.clips.length === 0) && (
-                <div className="col-span-full flex flex-col items-center justify-center py-12 text-neutral-500">
-                  <div className="w-12 h-12 border border-dashed border-neutral-300 dark:border-neutral-700 rounded-full flex items-center justify-center mb-4">
-                    <Layers className="w-5 h-5 opacity-50" />
+                <div className="col-span-full flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <div className="w-12 h-12 border border-dashed border-border rounded-full flex items-center justify-center mb-4">
+                    <Layers className="w-5 h-5 opacity-60" />
                   </div>
-                  <p className="font-mono text-xs uppercase tracking-widest">No Clips Generated</p>
+                  <p className="text-sm">No clips yet</p>
                 </div>
               )}
 
@@ -776,20 +770,18 @@ const ContentDisplayCard = ({
                   return (
                     <div
                       key={clip._id}
-                      className="group relative bg-black border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+                      className="group relative bg-black border border-border rounded-xl overflow-hidden transition-colors duration-200 hover:border-foreground/20"
                     >
                       <div className="relative aspect-[9/16] bg-black">
-                        <video
-                          controls
-                          muted
+                        <ClipPreview
                           src={clip.s3Url}
-                          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                          wordEvents={clip.wordEvents}
+                          clipStart={clip.startTime}
                         />
-                        <div className="absolute inset-0 pointer-events-none" />
                       </div>
 
-                      <div className="p-4 border-t border-border bg-card">
-                        <p className="font-bold text-xs text-black dark:text-white uppercase tracking-wider truncate mb-3">
+                      <div className="p-3 border-t border-border bg-card">
+                        <p className="text-[12.5px] font-medium text-foreground truncate mb-2.5">
                           {clip.title}
                         </p>
                         <DropdownMenu modal={false}>
@@ -797,16 +789,16 @@ const ContentDisplayCard = ({
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full rounded-none border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900 font-mono text-[10px] h-8 uppercase tracking-widest transition-colors"
+                              className="w-full rounded-md border-border hover:bg-accent text-[12.5px] h-9"
                             >
-                              <Download className="mr-2 h-3 w-3" />
-                              Download Asset
+                              <Download className="mr-2 h-3.5 w-3.5" />
+                              Download
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             side="bottom"
                             align="end"
-                            className="rounded-none border-neutral-200 dark:border-neutral-800 min-w-[140px] z-50"
+                            className="rounded-md border-border min-w-[160px] z-50"
                           >
                             {["9:16", "1:1", "4:5"].map((aspect) => {
                               const downloadUrl = getDownloadUrl(aspect);
@@ -815,7 +807,7 @@ const ContentDisplayCard = ({
                                 <DropdownMenuItem
                                   key={aspect}
                                   disabled={isProcessing}
-                                  className="rounded-none font-mono text-xs focus:bg-neutral-100 dark:focus:bg-neutral-800 py-2"
+                                  className="rounded-sm text-[13px] focus:bg-accent py-2 flex items-center justify-between"
                                   onClick={() => {
                                     if (downloadUrl) {
                                       window.open(downloadUrl, "_blank");
@@ -824,11 +816,13 @@ const ContentDisplayCard = ({
                                     }
                                   }}
                                 >
-                                  {isProcessing
-                                    ? `PROCESSING ${aspect}...`
-                                    : `DOWNLOAD ${aspect}`}
+                                  <span>
+                                    {isProcessing
+                                      ? `Rendering ${aspect}…`
+                                      : `${aspect}`}
+                                  </span>
                                   {downloadUrl && !isProcessing && (
-                                    <span className="ml-2 text-green-500">✓</span>
+                                    <span className="text-[var(--accent-500)] text-xs">Ready</span>
                                   )}
                                 </DropdownMenuItem>
                               );
@@ -844,12 +838,12 @@ const ContentDisplayCard = ({
                   return (
                     <div
                       key={clip._id}
-                      className="border border-dashed border-neutral-300 dark:border-neutral-700 aspect-[9/16] flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900/50 text-neutral-400"
+                      className="border border-dashed border-red-500/30 aspect-[9/16] flex flex-col items-center justify-center bg-red-500/[0.04] text-red-500/80 rounded-xl"
                     >
-                      <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center mb-2">
-                        <AlertCircle className="w-4 h-4 text-neutral-500" />
+                      <div className="w-9 h-9 rounded-full bg-red-500/15 flex items-center justify-center mb-2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
                       </div>
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-500">Generation Failed</p>
+                      <p className="text-xs">Generation failed</p>
                     </div>
                   );
                 }
@@ -857,11 +851,11 @@ const ContentDisplayCard = ({
                 return (
                   <div
                     key={clip._id}
-                    className="border border-dashed border-neutral-200 dark:border-neutral-800 aspect-[9/16] flex flex-col items-center justify-center bg-neutral-50 dark:bg-neutral-900"
+                    className="border border-dashed border-border aspect-[9/16] flex flex-col items-center justify-center bg-muted/20 rounded-xl"
                   >
-                    <div className="animate-spin rounded-none h-6 w-6 border-2 border-neutral-300 border-t-black dark:border-neutral-700 dark:border-t-white"></div>
-                    <p className="text-xs text-neutral-500 mt-4 font-mono uppercase tracking-widest">
-                      Processing...
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-foreground/20 border-t-foreground"></div>
+                    <p className="text-xs text-muted-foreground mt-3">
+                      Processing…
                     </p>
                   </div>
                 );
@@ -902,63 +896,55 @@ const FailedJobCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20, transition: { duration: 0.3 } }}
-      className={`relative border ${
+      className={`relative border rounded-2xl ${
         isFailed
-          ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20'
-          : 'border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20'
-      } p-6 group transition-all duration-300`}
+          ? 'border-red-500/30 bg-red-500/[0.04]'
+          : 'border-amber-500/30 bg-amber-500/[0.04]'
+      } p-6 transition-colors duration-200`}
     >
-      {/* Corner Markers */}
-      <div className={`absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
-      <div className={`absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
-      <div className={`absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
-      <div className={`absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 ${isFailed ? 'border-red-400' : 'border-amber-400'}`} />
-
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isFailed
-              ? 'bg-red-100 dark:bg-red-900/30'
-              : 'bg-amber-100 dark:bg-amber-900/30'
+        <div className="flex items-start gap-4 min-w-0">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+            isFailed ? 'bg-red-500/15' : 'bg-amber-500/15'
           }`}>
             {isFailed ? (
-              <XCircle className="w-6 h-6 text-red-500" />
+              <XCircle className="w-5 h-5 text-red-500" />
             ) : (
-              <Clock className="w-6 h-6 text-amber-500 animate-pulse" />
+              <Clock className="w-5 h-5 text-amber-500" />
             )}
           </div>
           <div className="min-w-0">
-            <div className="mb-1">
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border ${
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${
                 isFailed
-                  ? 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
-                  : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 animate-pulse'
+                  ? 'border-red-500/30 text-red-500 bg-red-500/10'
+                  : 'border-amber-500/30 text-amber-500 bg-amber-500/10'
               }`}>
-                {isFailed ? 'FAILED' : 'POSSIBLY STUCK'}
+                <span className={`w-1.5 h-1.5 rounded-full ${isFailed ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
+                {isFailed ? 'Failed' : 'Stuck'}
               </span>
-              <span className="ml-2 text-xs text-neutral-400 font-mono">
+              <span className="text-xs text-muted-foreground">
                 Started {formatTimeSince(content.createdAt)}
               </span>
             </div>
-            <h3 className="text-lg font-bold tracking-tight mb-1 truncate">
-              {content.generatedTitle || "Processing Data Stream..."}
+            <h3 className="text-lg font-semibold tracking-tight mb-1 truncate">
+              {content.generatedTitle || "Untitled project"}
             </h3>
-            <p className="text-sm text-neutral-500 font-mono flex items-center truncate">
-              <span className={`w-2 h-2 rounded-full mr-2 ${isFailed ? 'bg-red-500' : 'bg-amber-500 animate-pulse'}`} />
-              SOURCE: <a href={content.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1 truncate">{content.sourceUrl}</a>
+            <p className="text-sm text-muted-foreground truncate">
+              <a href={content.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-foreground/80 hover:text-foreground underline-offset-4 hover:underline transition-colors">{content.sourceUrl}</a>
             </p>
             {isFailed && content.errorMessage && (
-              <div className="mt-3 p-3 bg-red-100/50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-sm">
-                <p className="text-xs font-mono text-red-600 dark:text-red-400 flex items-start gap-2">
+              <div className="mt-3 p-3 bg-red-500/[0.06] border border-red-500/20 rounded-lg">
+                <p className="text-xs text-red-500 flex items-start gap-2">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                   <span className="break-all">{content.errorMessage}</span>
                 </p>
               </div>
             )}
             {isStale && !isFailed && (
-              <div className="mt-3 p-3 bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-sm">
-                <p className="text-xs font-mono text-amber-600 dark:text-amber-400">
-                  ⚠ This job has been processing for over 15 minutes. It may have encountered an issue. You can safely dismiss it.
+              <div className="mt-3 p-3 bg-amber-500/[0.06] border border-amber-500/20 rounded-lg">
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  This job has been processing for over 15 minutes. You can safely dismiss it.
                 </p>
               </div>
             )}
@@ -970,16 +956,16 @@ const FailedJobCard = ({
           size="sm"
           disabled={isDeleting}
           onClick={() => onDelete(content._id)}
-          className={`rounded-none font-mono text-xs uppercase tracking-widest flex-shrink-0 h-10 px-6 transition-all ${
+          className={`rounded-lg text-xs flex-shrink-0 h-9 px-4 transition-colors ${
             isFailed
-              ? 'border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 hover:border-red-500'
-              : 'border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-500'
+              ? 'border-red-500/30 hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/50'
+              : 'border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/50'
           }`}
         >
           {isDeleting ? (
-            <><Activity className="w-3 h-3 mr-2 animate-spin" /> Removing...</>
+            <><Activity className="w-3.5 h-3.5 mr-2 animate-spin" /> Removing…</>
           ) : (
-            <><Trash2 className="w-3 h-3 mr-2" /> Dismiss Job</>
+            <><Trash2 className="w-3.5 h-3.5 mr-2" /> Dismiss</>
           )}
         </Button>
       </div>
@@ -1226,81 +1212,109 @@ export default function DashboardPage() {
   const totalPosts = contents?.reduce((sum, item) => sum + (item.twitterThread?.length || 0), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <>
       <Header />
-      <div className="relative pt-28 pb-20 z-10">
-        <div className="max-w-7xl mx-auto px-6">
+      <main className="relative pt-24 pb-16 min-h-screen">
+        {/* Soft brand glow upper centre, matching /create */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-16 left-1/2 -translate-x-1/2 h-[360px] w-[80%] -z-10"
+          style={{
+            background:
+              "radial-gradient(closest-side, var(--accent-glow), transparent 70%)",
+            opacity: 0.6,
+          }}
+        />
 
-          <div className="mb-12 flex flex-col md:flex-row justify-between items-end border-b border-border pb-8 relative z-20">
+        <div className="container-page max-w-7xl">
+
+          <motion.header
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4 border-b border-border pb-6 relative z-20"
+          >
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tighter mb-2">Mission Control</h1>
-              <p className="text-muted-foreground font-mono text-sm uppercase tracking-widest flex items-center">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2" />
-                System Status: Online | {contents?.length || 0} Active Projects
+              <p className="eyebrow mb-3">Dashboard</p>
+              <h1 className="section-title">
+                Your projects.{" "}
+                <span className="text-muted-foreground">
+                  All your output.
+                </span>
+              </h1>
+              <p className="section-lede mt-3 max-w-xl">
+                Every video you&apos;ve atomized — articles, social posts, clips and transcripts, all in one place.
               </p>
             </div>
             <Link href="/create">
-              <Button className="rounded-xl bg-foreground text-background font-bold tracking-tight px-8 h-12 hover:opacity-90 transition-all duration-300 relative overflow-hidden group cursor-pointer shadow-lg mt-6 md:mt-0">
-                <span className="relative z-10 flex items-center">
-                  <Zap className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" /> New Project
-                </span>
+              <Button className="rounded-md bg-foreground text-background font-medium px-5 h-10 text-[13.5px] hover:opacity-92 transition-opacity active:translate-y-px">
+                <Zap className="w-4 h-4 mr-2" /> New project
               </Button>
             </Link>
-          </div>
+          </motion.header>
 
-          {/* Stat cards — clean inline, no heavy animation component */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 relative z-20">
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8 relative z-20">
             {[
-              { value: completedProjects, label: "Completed", color: "text-foreground" },
-              { value: processingProjects, label: "Processing", color: "text-amber-500" },
-              { value: totalClips + totalPosts, label: "Total Output", color: "text-foreground" },
+              { value: completedProjects, label: "Completed", accent: false },
+              { value: processingProjects, label: "Processing", accent: false, processing: true },
+              { value: totalClips + totalPosts, label: "Total assets", accent: true },
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="rounded-2xl border border-border bg-card p-6 hover:border-foreground/20 transition-colors duration-300"
+                className="rounded-2xl border border-border bg-card p-5 hover:border-foreground/20 transition-colors duration-200"
               >
-                <div className={`text-4xl font-bold font-mono tracking-tighter ${stat.color}`}>{stat.value}</div>
-                <p className="mt-2 text-sm text-muted-foreground">{stat.label}</p>
+                <div className={`text-3xl font-semibold tracking-tight ${stat.accent ? 'text-[var(--accent-500)]' : 'text-foreground'}`}>{stat.value}</div>
+                <p className="mt-1.5 text-sm text-muted-foreground flex items-center gap-2">
+                  {stat.processing && stat.value > 0 && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
+                  {stat.label}
+                </p>
               </div>
             ))}
           </div>
 
-          <div className="space-y-10">
-            <div className="flex items-end justify-between border-b border-border pb-6">
+          <div className="space-y-6">
+            <div className="flex items-end justify-between border-b border-border pb-4">
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-1">
-                  Live Operations
+                <p className="eyebrow mb-1.5">Recent activity</p>
+                <h2 className="text-xl md:text-2xl font-semibold tracking-tight">
+                  Library
                 </h2>
-                <p className="text-muted-foreground font-mono text-sm tracking-widest uppercase">
-                  Real-time content processing stream
-                </p>
               </div>
-              <div className="hidden md:flex items-center space-x-2 text-xs font-mono text-muted-foreground">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>SYSTEM OPTIMAL</span>
+              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-500)]" />
+                <span>Auto-refreshing every 5s</span>
               </div>
             </div>
 
             {isLoading && (
               <div className="border border-border rounded-2xl p-12 text-center">
-                <div className="animate-spin w-8 h-8 border-2 border-foreground border-t-transparent rounded-full mx-auto mb-4"></div>
-                <p className="font-mono text-sm text-muted-foreground">Fetching Data Stream...</p>
+                <div className="animate-spin w-6 h-6 border-2 border-foreground/30 border-t-foreground rounded-full mx-auto mb-4"></div>
+                <p className="text-sm text-muted-foreground">Loading your projects…</p>
               </div>
             )}
 
-            {error && <p className="text-center text-red-500 font-mono">ERROR: CONNECTION_REFUSED</p>}
+            {error && (
+              <div className="border border-red-500/30 bg-red-500/5 rounded-2xl p-6">
+                <p className="text-sm font-medium text-red-500 mb-1">Couldn&apos;t load your projects</p>
+                <p className="text-sm text-muted-foreground break-all">{error.message || 'Unknown error.'}</p>
+              </div>
+            )}
 
             {contents?.length === 0 && (
-              <div className="text-center py-24 border border-border rounded-2xl bg-muted/20">
-                <div className="w-16 h-16 mx-auto bg-card border border-border rounded-2xl flex items-center justify-center mb-6">
-                  <FileText className="w-8 h-8 text-muted-foreground" />
+              <div className="text-center py-20 border border-border rounded-2xl bg-muted/20">
+                <div className="w-14 h-14 mx-auto bg-card border border-border rounded-2xl flex items-center justify-center mb-5">
+                  <FileText className="w-6 h-6 text-muted-foreground" />
                 </div>
-                <div className="space-y-2 mb-8">
-                  <h3 className="text-xl font-bold">No Data Found</h3>
-                  <p className="text-muted-foreground font-mono text-sm">
-                    Initialize a new project to begin data processing.
-                  </p>
-                </div>
+                <h3 className="text-lg font-semibold mb-1">No projects yet</h3>
+                <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                  Drop in a YouTube link or upload a video and we&apos;ll handle the rest.
+                </p>
+                <Link href="/create">
+                  <Button className="rounded-xl bg-foreground text-background font-medium px-5 h-10 hover:opacity-90 transition-opacity">
+                    <Zap className="w-4 h-4 mr-2" /> Create your first project
+                  </Button>
+                </Link>
               </div>
             )}
 
@@ -1320,16 +1334,18 @@ export default function DashboardPage() {
 
               // Show skeleton/spinner for actively processing (non-stale) jobs
               if (['PENDING', 'GENERATING_TEXT', 'GENERATING_VIDEOS'].includes(content.status)) {
+                const statusLabel = content.status === 'PENDING' ? 'Queued' : content.status === 'GENERATING_TEXT' ? 'Generating text' : 'Rendering videos';
                 return (
-                  <div key={content._id} className="relative border border-amber-300/50 dark:border-amber-800/50 bg-card rounded-2xl p-6 transition-all">
+                  <div key={content._id} className="relative border border-border bg-card rounded-2xl p-6">
                     <div className="flex items-center gap-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-300 border-t-amber-600 dark:border-amber-700 dark:border-t-amber-400"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-amber-500/30 border-t-amber-500"></div>
                       <div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 animate-pulse">
-                          {content.status.replace(/_/g, ' ')}
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-500/30 text-amber-500 bg-amber-500/10">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          {statusLabel}
                         </span>
-                        <p className="text-sm text-muted-foreground font-mono mt-2">
-                          Processing your content... Started {formatTimeSince(content.createdAt)}
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Started {formatTimeSince(content.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -1354,37 +1370,35 @@ export default function DashboardPage() {
             })}
           </div>
         </div>
-      </div>
+      </main>
+      <Footer />
 
       <Dialog open={isTranslateDialogOpen} onOpenChange={setIsTranslateDialogOpen}>
         <DialogContent className="sm:max-w-[500px] rounded-2xl border-border bg-card p-0 overflow-hidden">
-          <div className="bg-muted/50 p-6 border-b border-border">
-            <div className="flex items-center space-x-3 mb-2">
+          <div className="bg-muted/40 p-6 border-b border-border">
+            <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
                 <Languages className="w-4 h-4 text-background" />
               </div>
-              <DialogTitle className="font-bold tracking-tight text-lg">Neural Translation</DialogTitle>
+              <DialogTitle className="font-semibold tracking-tight text-lg">Translate content</DialogTitle>
             </div>
-            <DialogDescription className="font-mono text-xs text-neutral-500">
-              Select a target protocol for content localization.
+            <DialogDescription className="text-sm text-muted-foreground">
+              Pick a language and we&apos;ll translate the article, summary, social posts and transcript.
             </DialogDescription>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-5">
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">Target Language</label>
+              <label className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">Target language</label>
               <div className="relative">
                 <Input
                   id="language"
-                  placeholder="Type language (e.g. Spanish, Japanese)..."
+                  placeholder="e.g. Spanish, Japanese"
                   value={targetLanguage}
                   onChange={(e) => setTargetLanguage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleTranslate()}
-                  className="rounded-xl border-border focus:ring-0 focus:border-foreground h-12 pl-4 font-mono text-sm"
+                  className="rounded-xl border-border focus:ring-0 focus:border-foreground h-11 pl-4 text-sm"
                 />
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <span className="text-[10px] font-mono text-muted-foreground border border-border px-1.5 py-0.5 rounded-md">RETURN</span>
-                </div>
               </div>
             </div>
 
@@ -1393,7 +1407,7 @@ export default function DashboardPage() {
                 <button
                   key={lang}
                   onClick={() => setTargetLanguage(lang)}
-                  className="text-left px-4 py-3 border border-border rounded-xl hover:border-foreground/30 hover:bg-muted/50 transition-all text-sm font-mono"
+                  className={`text-left px-4 py-2.5 border rounded-xl transition-colors text-sm ${targetLanguage === lang ? 'border-foreground/40 bg-muted/60' : 'border-border hover:border-foreground/30 hover:bg-muted/40'}`}
                 >
                   {lang}
                 </button>
@@ -1401,25 +1415,25 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <DialogFooter className="p-6 border-t border-border bg-muted/30">
+          <DialogFooter className="p-6 border-t border-border bg-muted/20">
             <Button
               variant="outline"
               onClick={() => setIsTranslateDialogOpen(false)}
               className="rounded-xl border-border hover:bg-accent"
             >
-              CANCEL
+              Cancel
             </Button>
             <Button
               onClick={handleTranslate}
-              disabled={isTranslating}
+              disabled={isTranslating || !targetLanguage}
               className="rounded-xl bg-foreground text-background hover:opacity-90 min-w-[120px]"
             >
               {isTranslating ? (
                 <>
-                  <Activity className="w-4 h-4 mr-2 animate-spin" /> PROCESSING
+                  <Activity className="w-4 h-4 mr-2 animate-spin" /> Translating…
                 </>
               ) : (
-                "EXECUTE"
+                "Translate"
               )}
             </Button>
           </DialogFooter>
@@ -1429,11 +1443,12 @@ export default function DashboardPage() {
       {/* Scroll To Top Button */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-8 right-8 z-50 p-3 bg-foreground text-background rounded-xl shadow-lg transition-all duration-300 hover:scale-110 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
+        aria-label="Scroll to top"
+        className={`fixed bottom-8 right-8 z-50 p-3 bg-foreground text-background rounded-xl shadow-lg transition-all duration-300 hover:scale-105 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
           }`}
       >
-        <ArrowUp className="w-6 h-6" />
+        <ArrowUp className="w-5 h-5" />
       </button>
-    </div>
+    </>
   );
 }

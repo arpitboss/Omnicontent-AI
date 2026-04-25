@@ -12,7 +12,7 @@ interface TypewriterTextProps {
 
 // A simple component for the animated ellipsis
 const BlinkingCursor = () => (
-    <span className="inline-block w-2 h-4 bg-black dark:bg-white ml-1 animate-pulse align-middle" />
+    <span className="inline-block w-[2px] h-4 bg-foreground/70 ml-1 animate-pulse align-middle" />
 );
 
 export const TypewriterText = ({ text, id, components }: TypewriterTextProps) => {

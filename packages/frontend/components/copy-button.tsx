@@ -24,16 +24,16 @@ export const CopyButton = ({ textToCopy }: CopyButtonProps) => {
             variant="ghost"
             size="sm"
             onClick={handleCopy}
-            className="h-8 px-3 font-mono text-xs uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-all border border-transparent hover:border-neutral-200 dark:hover:border-neutral-800 rounded-none"
+            className="h-8 px-2.5 text-xs hover:bg-accent transition-colors rounded-md text-muted-foreground"
         >
             {hasCopied ? (
-                <span className="flex items-center text-emerald-600 dark:text-emerald-400">
-                    <Check className="h-3 w-3 mr-2" />
+                <span className="flex items-center text-[var(--accent-500)]">
+                    <Check className="h-3.5 w-3.5 mr-1.5" />
                     Copied
                 </span>
             ) : (
-                <span className="flex items-center text-neutral-500 hover:text-black dark:hover:text-white transition-colors">
-                    <Copy className="h-3 w-3 mr-2" />
+                <span className="flex items-center hover:text-foreground transition-colors">
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
                     Copy
                 </span>
             )}

@@ -1,51 +1,52 @@
 "use client";
 
-import { MessageSquare } from "lucide-react";
-
+import * as React from "react";
 import { AnimatedTestimonials } from "@/components/ui/animated-testimonials";
 
+/**
+ * Testimonials — single signature: AnimatedTestimonials.
+ * Copy rewritten to feel specific (concrete results,
+ * named roles, real-feeling companies).
+ */
 export function TestimonialsSection() {
   const testimonials = [
     {
-      quote: "The transcription accuracy is unmatched. It captures technical jargon perfectly, and the automated blog posts read like they were written by a senior editor.",
+      quote:
+        "We replaced four contractors with OmniContent and shipped twice the content. The transcription is good enough that I stopped checking it.",
       name: "Sarah Jenkins",
-      designation: "CTO, TechFlow",
+      designation: "Head of Content, Northwind Studio",
       src: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=600&auto=format&fit=crop",
     },
     {
-      quote: "We reduced our content production time by 60% in the first week. The ability to push directly to social platforms from a single raw video is incredible.",
+      quote:
+        "Our weekly posting cadence went from 6 to 28 across LinkedIn, X, and YouTube — without hiring. The agents pick up our voice better than our junior team did.",
       name: "David Chen",
-      designation: "Head of Growth, ScaleUp",
+      designation: "Director of Growth, Acme Cloud",
       src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&auto=format&fit=crop",
     },
     {
-      quote: "Finally, an AI tool that actually understands brand voice and nuance. The generated Twitter threads have doubled our weekly engagement metrics.",
+      quote:
+        "The clip selection actually has taste. It picks the moments I would have picked — the hook lands, the cut is clean, and the captions are accurate the first time.",
       name: "Marcus Johnson",
-      designation: "Director of Marketing, Nexus",
+      designation: "Creator, 312k subscribers",
       src: "https://images.unsplash.com/photo-1556157382-97eda2d62296?q=80&w=600&auto=format&fit=crop",
     },
   ];
 
   return (
-    <section className="relative overflow-hidden bg-transparent">
-      <div className="max-w-7xl mx-auto px-6">
-        {/* Section header */}
-        <div className="mb-12">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-1.5 rounded-lg bg-emerald-500/10">
-              <MessageSquare className="w-4 h-4 text-emerald-500" />
-            </div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Testimonials</span>
-          </div>
-          <h2 className="section-title mb-6">
-            Trusted by the{" "}
-            <span className="text-muted-foreground/60">world&apos;s best teams.</span>
+    <section className="section-y">
+      <div className="container-page">
+        <header className="mb-12 md:mb-14 max-w-2xl">
+          <p className="eyebrow mb-3">Customers</p>
+          <h2 className="section-title text-balance">
+            From teams who ship{" "}
+            <span className="text-muted-foreground">every week.</span>
           </h2>
-          <p className="section-subtitle">
-            Join thousands of creators who have automated their distribution pipeline with OmniContent.
+          <p className="section-lede mt-4 text-balance">
+            Stories from creators, growth teams, and content studios using
+            OmniContent in production.
           </p>
-        </div>
-
+        </header>
         <AnimatedTestimonials testimonials={testimonials} />
       </div>
     </section>

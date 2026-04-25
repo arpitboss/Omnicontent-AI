@@ -120,7 +120,7 @@ export const SparklesCore = (props: ParticlesProps) => {
         window.removeEventListener("resize", resizeCanvas);
       };
     }
-  }, [mounted, particleColor, particleDensity, speed, minSize, maxSize]);
+  }, [mounted, particleColor, particleDensity, speed, minSize, maxSize, resolvedColor]);
 
   if (!mounted) return null;
 
