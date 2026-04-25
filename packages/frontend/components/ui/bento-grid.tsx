@@ -39,54 +39,42 @@ export const BentoGridItem = ({
 }) => {
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            viewport={{ once: true, margin: "-40px" }}
+            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
             className={cn(
-                "row-span-1 relative group/bento bg-white dark:bg-black border border-transparent flex flex-col overflow-hidden",
+                "row-span-1 relative group/bento rounded-xl overflow-hidden flex flex-col",
+                "bg-card border border-border/60",
+                "transition-all duration-500 ease-out",
+                "hover:border-primary/20 hover:shadow-lg hover:shadow-primary/[0.03]",
+                "dark:hover:border-primary/25 dark:hover:shadow-primary/[0.06]",
                 className
             )}
         >
-            {/* Dashed Border Effect - INSIDE the container */}
-            <div className="absolute inset-[1px] border border-dashed border-neutral-300 dark:border-neutral-700 pointer-events-none z-20" />
+            {/* Hover glow — subtle radial gradient on border */}
+            <div className="absolute inset-0 rounded-xl opacity-0 group-hover/bento:opacity-100 transition-opacity duration-700 pointer-events-none z-10 bg-gradient-to-br from-primary/[0.03] via-transparent to-primary/[0.02]" />
 
-            {/* Corner Markers */}
-            <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-neutral-400 dark:border-neutral-500 z-30" />
-            <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-neutral-400 dark:border-neutral-500 z-30" />
-            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-neutral-400 dark:border-neutral-500 z-30" />
-            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-neutral-400 dark:border-neutral-500 z-30" />
-
-            {/* Hover Glow */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-neutral-100/30 dark:via-neutral-800/30 to-transparent opacity-0 group-hover/bento:opacity-100 transition-opacity duration-500 pointer-events-none z-10" />
-
-            {/* Header Section - Contained with overflow hidden */}
-            <div className="relative flex-1 overflow-hidden bg-neutral-50 dark:bg-neutral-900/50">
+            {/* Header Section */}
+            <div className="relative flex-1 overflow-hidden bg-muted/30">
                 <div className="absolute inset-0 overflow-hidden flex items-center justify-center">
                     {header}
                 </div>
             </div>
 
-            {/* Content Section - Properly padded */}
-            <div className="relative z-20 p-5 bg-white dark:bg-black border-t border-neutral-200 dark:border-neutral-800">
-                <div className="font-sans font-bold text-neutral-800 dark:text-neutral-200 mb-2 text-sm">
-                    {title}
+            {/* Content Section */}
+            <div className="relative z-20 p-5 bg-card border-t border-border/40">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-muted-foreground">{icon}</span>
+                    <div className="font-semibold text-card-foreground text-sm tracking-tight">
+                        {title}
+                    </div>
                 </div>
-                <div className="font-sans font-normal text-neutral-600 dark:text-neutral-400 text-xs leading-relaxed">
+                <div className="font-normal text-muted-foreground text-xs leading-relaxed">
                     {description}
                 </div>
                 {children}
             </div>
-
-            {/* Icon with Microinteraction */}
-            <motion.div
-                className="absolute top-3 right-3 z-30"
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileHover={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-            >
-                {icon}
-            </motion.div>
         </motion.div>
     );
 };

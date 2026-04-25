@@ -2,13 +2,15 @@
 
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { motion } from "framer-motion";
+import { CardSpotlight } from "@/components/ui/card-spotlight";
 
 export function PricingSection() {
   const plans = [
     {
       name: "Starter",
       price: "$0",
-      description: "Perfect for individuals exploring neural content generation.",
+      description: "Perfect for individuals exploring AI content generation.",
       features: [
         "500 AI-generated clips / mo",
         "Basic neural transcription",
@@ -49,67 +51,73 @@ export function PricingSection() {
   ];
 
   return (
-    <section className="py-32 relative overflow-hidden bg-neutral-50 dark:bg-neutral-950">
+    <section className="relative overflow-hidden bg-transparent">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-20">
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tighter text-neutral-900 dark:text-neutral-100 mb-6">
-            Simple, Transparent <br />
-            <span className="text-neutral-400 dark:text-neutral-600">Pricing.</span>
+          <h2 className="section-title mx-auto mb-6">
+            Simple, transparent{" "}
+            <span className="text-muted-foreground/60">pricing.</span>
           </h2>
-          <p className="text-lg text-neutral-600 dark:text-neutral-400 max-w-xl mx-auto leading-relaxed">
+          <p className="section-subtitle mx-auto">
             Choose the plan that fits your scale. No hidden fees. Cancel anytime.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {plans.map((plan, index) => (
-            <div
+            <motion.div
               key={index}
-              className={`relative p-8 border flex flex-col h-full transition-all duration-500 group ${plan.popular
-                ? "bg-white dark:bg-black border-black dark:border-white shadow-2xl scale-105 z-10"
-                : "bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-lg hover:-translate-y-1"
-                }`}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="h-full"
             >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-black dark:bg-white text-white dark:text-black px-4 py-1 text-sm font-bold shadow-md uppercase tracking-widest animate-pulse">
-                  Recommended
-                </div>
-              )}
-
-              <div className="mb-8">
-                <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 mb-2 uppercase tracking-widest">{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-4">
-                  <span className="text-4xl font-bold text-neutral-900 dark:text-neutral-100">{plan.price}</span>
-                  {plan.price !== "Custom" && <span className="text-neutral-500 dark:text-neutral-400">/month</span>}
-                </div>
-                <p className="text-neutral-600 dark:text-neutral-400 text-sm leading-relaxed">
-                  {plan.description}
-                </p>
-              </div>
-
-              <div className="flex-1 space-y-4 mb-8">
-                {plan.features.map((feature, i) => (
-                  <div key={i} className="flex items-start gap-3 group/feature">
-                    <div className="mt-0.5 w-4 h-4 rounded-full bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center group-hover/feature:bg-black dark:group-hover/feature:bg-white transition-colors duration-300">
-                      <Check className="w-2.5 h-2.5 text-black dark:text-white group-hover/feature:text-white dark:group-hover/feature:text-black transition-colors duration-300" />
-                    </div>
-                    <span className="text-sm text-neutral-600 dark:text-neutral-300">{feature}</span>
-                  </div>
-                ))}
-              </div>
-
-              <Button
-                className={`w-full h-12 rounded-none font-bold transition-all duration-300 uppercase tracking-widest relative overflow-hidden ${plan.popular
-                  ? "bg-black hover:bg-black/90 text-white dark:bg-white dark:text-black dark:hover:bg-white/90 shadow-lg"
-                  : "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+              <CardSpotlight
+                className={`relative rounded-xl p-8 flex flex-col h-full transition-all duration-500 group ${plan.popular
+                  ? "bg-card border-emerald-500/30 shadow-xl shadow-emerald-500/[0.05] scale-[1.02] z-10"
+                  : "bg-card border-border/60"
                   }`}
               >
-                <span className="relative z-10">{plan.cta}</span>
+                {/* Popular badge */}
                 {plan.popular && (
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-black px-4 py-1 text-xs font-bold rounded-full shadow-md z-30">
+                    Recommended
+                  </div>
                 )}
-              </Button>
-            </div>
+
+                <div className="mb-8 relative z-20">
+                  <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-4 text-foreground">
+                    <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
+                    {plan.price !== "Custom" && <span className="text-muted-foreground text-sm">/month</span>}
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {plan.description}
+                  </p>
+                </div>
+
+                <div className="flex-1 space-y-3.5 mb-8 relative z-20">
+                  {plan.features.map((feature, i) => (
+                    <div key={i} className="flex items-start gap-3 group/feature">
+                      <div className="mt-0.5 w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 group-hover/feature:bg-emerald-500 transition-colors duration-300">
+                        <Check className="w-3 h-3 text-emerald-500 group-hover/feature:text-white dark:group-hover/feature:text-black transition-colors duration-300" />
+                      </div>
+                      <span className="text-sm text-muted-foreground group-hover/feature:text-foreground transition-colors">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  className={`w-full h-11 rounded-lg font-bold transition-all duration-300 relative overflow-hidden z-20 ${plan.popular
+                    ? "bg-foreground text-background hover:bg-foreground/90 shadow-lg hover:shadow-xl hover:-translate-y-px"
+                    : "bg-muted hover:bg-accent text-foreground"
+                    }`}
+                >
+                  <span className="relative z-10">{plan.cta}</span>
+                </Button>
+              </CardSpotlight>
+            </motion.div>
           ))}
         </div>
       </div>

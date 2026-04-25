@@ -70,6 +70,7 @@ export default {
         sans: ["var(--font-sans)"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
+        heading: ['Bricolage Grotesque', 'sans-serif'],
       },
       animation: {
         "fade-in": "fade-in 0.8s ease-out forwards",
@@ -80,6 +81,7 @@ export default {
         "shimmer": "shimmer 2s infinite",
         "loading-pulse": "loading-pulse 1.5s ease-in-out infinite",
         "blink": "blink 1s step-start infinite",
+        "scroll": "scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite",
       },
       keyframes: {
         "fade-in": {
@@ -114,7 +116,12 @@ export default {
         "blink": {
           "0%, 50%": { opacity: "1" },
           "51%, 100%": { opacity: "0" }
-        }
+        },
+        "scroll": {
+          to: {
+            transform: "translate(calc(-50% - 0.5rem))",
+          },
+        },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

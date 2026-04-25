@@ -1,6 +1,6 @@
 "use client";
 
-import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+
 import { motion } from "framer-motion";
 import {
     Bot,
@@ -9,73 +9,90 @@ import {
     Video
 } from "lucide-react";
 
+import { CardSpotlight } from "@/components/ui/card-spotlight";
+import { BackgroundLines } from "@/components/ui/background-lines";
+
 export function AgentGrid() {
     const agents = [
         {
             title: "Video Atomizer",
             description: "Deconstructs long-form video into viral clips.",
             header: <VideoAtomizerVisual />,
-            icon: <Video className="h-4 w-4 text-neutral-500" />,
-            className: "md:col-span-1",
+            icon: <Video className="h-4 w-4" />,
         },
         {
             title: "Blog Architect",
             description: "Synthesizes transcripts into SEO-optimized articles.",
             header: <BlogArchitectVisual />,
-            icon: <PenTool className="h-4 w-4 text-neutral-500" />,
-            className: "md:col-span-1",
+            icon: <PenTool className="h-4 w-4" />,
         },
         {
             title: "Social Strategist",
             description: "Drafts platform-native posts for LinkedIn & Twitter.",
             header: <SocialStrategistVisual />,
-            icon: <Share2 className="h-4 w-4 text-neutral-500" />,
-            className: "md:col-span-1",
+            icon: <Share2 className="h-4 w-4" />,
         },
     ];
 
     return (
-        <section className="py-24 relative overflow-hidden bg-neutral-50 dark:bg-neutral-900/50">
+        <section className="relative overflow-hidden bg-background">
+            <BackgroundLines className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+                <></>
+            </BackgroundLines>
+            <div className="relative z-10">
             <div className="max-w-7xl mx-auto px-6 mb-16 text-center">
-                <div className="inline-flex items-center space-x-2 mb-4 border border-neutral-200 dark:border-neutral-800 px-3 py-1 bg-white dark:bg-black">
-                    <Bot className="w-4 h-4" />
-                    <span className="font-bold uppercase tracking-widest text-xs">Neural Agents</span>
+                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full border border-border/60 bg-card/50 backdrop-blur-sm">
+                    <Bot className="w-4 h-4 text-emerald-500" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Autonomous Agents
+                    </span>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-bold tracking-tighter">
-                    Autonomous Content Workforce
+                <h2 className="section-title mx-auto mb-6">
+                    Meet your new{" "}
+                    <span className="text-muted-foreground/60">content team.</span>
                 </h2>
+                <p className="section-subtitle mx-auto">
+                    Three specialized neural agents working in parallel to deconstruct, architect, and strategize your entire brand presence.
+                </p>
             </div>
-            <BentoGrid className="max-w-7xl mx-auto px-6">
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto px-6">
                 {agents.map((item, i) => (
-                    <BentoGridItem
-                        key={i}
-                        title={item.title}
-                        description={item.description}
-                        header={item.header}
-                        icon={item.icon}
-                        className={item.className}
-                    />
+                    <CardSpotlight key={i} className="h-full flex flex-col p-6 min-h-[400px]">
+                        <div className="flex-1 w-full flex items-center justify-center relative z-20 mb-6">
+                            {item.header}
+                        </div>
+                        <div className="relative z-20 mt-auto">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-background/50 rounded-lg border border-border/50 text-foreground">
+                                    {item.icon}
+                                </div>
+                                <h3 className="text-lg font-bold tracking-tight text-white">{item.title}</h3>
+                            </div>
+                            <p className="text-sm text-neutral-400">
+                                {item.description}
+                            </p>
+                        </div>
+                    </CardSpotlight>
                 ))}
-            </BentoGrid>
+            </div>
+            </div>
         </section>
     );
 }
 
 const VideoAtomizerVisual = () => {
     return (
-        <div className="w-full h-full flex items-center justify-center p-6 bg-white dark:bg-black relative overflow-hidden group">
-            <div className="absolute inset-0 bg-grid-black/[0.02] dark:bg-grid-white/[0.02]" />
-
-            {/* Video timeline representation */}
+        <div className="w-full h-full flex items-center justify-center p-6 bg-card relative overflow-hidden group">
             <div className="w-full max-w-[200px] space-y-4 relative z-10">
                 {/* Main timeline */}
-                <div className="h-12 border border-neutral-200 dark:border-neutral-800 relative overflow-hidden rounded-md bg-neutral-50 dark:bg-neutral-900">
-                    {/* Waveform simulation */}
+                <div className="h-12 border border-border/60 relative overflow-hidden rounded-lg bg-muted/30">
+                    {/* Waveform */}
                     <div className="absolute inset-0 flex items-center justify-around px-2 opacity-20">
                         {[...Array(20)].map((_, i) => (
                             <motion.div
                                 key={i}
-                                className="w-1 bg-black dark:bg-white rounded-full"
+                                className="w-1 bg-foreground rounded-full"
                                 animate={{ height: ["20%", "80%", "20%"] }}
                                 transition={{
                                     duration: 1,
@@ -89,13 +106,13 @@ const VideoAtomizerVisual = () => {
 
                     {/* Scanning head */}
                     <motion.div
-                        className="absolute inset-y-0 left-0 w-0.5 bg-red-500 z-20"
+                        className="absolute inset-y-0 left-0 w-0.5 bg-primary z-20"
                         animate={{ left: ["0%", "100%"] }}
                         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
                     />
 
                     <div className="absolute inset-0 flex items-center justify-center z-30">
-                        <Video className="w-5 h-5 text-neutral-400" />
+                        <Video className="w-5 h-5 text-muted-foreground" />
                     </div>
                 </div>
 
@@ -108,11 +125,9 @@ const VideoAtomizerVisual = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.2 + 0.5, duration: 0.4 }}
                             whileHover={{ scale: 1.05, y: -2 }}
-                            className="h-8 border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black rounded-md relative overflow-hidden cursor-pointer shadow-sm"
+                            className="h-8 border border-border/60 bg-card rounded-lg relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-primary/20 transition-all"
                             style={{ width: `${width}%` }}
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-black/5 dark:via-white/10 to-transparent -translate-x-full hover:animate-shimmer" />
-                        </motion.div>
+                        />
                     ))}
                 </div>
             </div>
@@ -122,25 +137,24 @@ const VideoAtomizerVisual = () => {
 
 const BlogArchitectVisual = () => {
     return (
-        <div className="w-full h-full flex items-center justify-center p-6 bg-neutral-50 dark:bg-neutral-900 relative overflow-hidden">
-            <div className="w-full max-w-[160px] bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 p-4 rounded-lg shadow-sm relative z-10">
+        <div className="w-full h-full flex items-center justify-center p-6 bg-gradient-to-br from-muted/30 to-transparent relative overflow-hidden">
+            <div className="w-full max-w-[160px] bg-card border border-border/60 p-4 rounded-xl shadow-sm relative z-10">
                 <div className="space-y-2">
-                    {/* Header */}
                     <div className="flex gap-2 mb-3">
-                        <div className="w-8 h-8 bg-neutral-100 dark:bg-neutral-900 rounded-full flex items-center justify-center">
-                            <PenTool className="w-4 h-4 text-neutral-400" />
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                            <PenTool className="w-4 h-4 text-primary" />
                         </div>
                         <div className="space-y-1 flex-1">
-                            <div className="h-2 w-3/4 bg-neutral-200 dark:bg-neutral-800 rounded-full" />
-                            <div className="h-2 w-1/2 bg-neutral-100 dark:bg-neutral-900 rounded-full" />
+                            <div className="h-2 w-3/4 bg-muted rounded-full" />
+                            <div className="h-2 w-1/2 bg-muted/50 rounded-full" />
                         </div>
                     </div>
 
                     {/* Typing lines */}
                     {[100, 90, 95, 85, 60].map((width, i) => (
-                        <div key={i} className="h-1.5 bg-neutral-100 dark:bg-neutral-900 rounded-full overflow-hidden">
+                        <div key={i} className="h-1.5 bg-muted/50 rounded-full overflow-hidden">
                             <motion.div
-                                className="h-full bg-neutral-400 dark:bg-neutral-600 rounded-full"
+                                className="h-full bg-muted-foreground/20 rounded-full"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${width}%` }}
                                 transition={{
@@ -153,13 +167,12 @@ const BlogArchitectVisual = () => {
                     ))}
                 </div>
 
-                {/* Floating elements */}
                 <motion.div
-                    className="absolute -right-2 -top-2 w-6 h-6 bg-black dark:bg-white rounded-full flex items-center justify-center shadow-lg"
+                    className="absolute -right-2 -top-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg"
                     animate={{ y: [0, -5, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 >
-                    <div className="w-2 h-2 bg-white dark:bg-black rounded-full" />
+                    <div className="w-2 h-2 bg-primary-foreground rounded-full" />
                 </motion.div>
             </div>
         </div>
@@ -168,12 +181,12 @@ const BlogArchitectVisual = () => {
 
 const SocialStrategistVisual = () => {
     return (
-        <div className="w-full h-full flex items-center justify-center p-6 bg-white dark:bg-black relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-100/50 via-transparent to-transparent dark:from-neutral-900/50" />
+        <div className="w-full h-full flex items-center justify-center p-6 bg-card relative overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/[0.03] via-transparent to-transparent" />
 
             <div className="grid grid-cols-2 gap-3 w-full max-w-[160px] relative z-10">
                 {[
-                    { icon: <Share2 className="w-3 h-3" />, delay: 0 },
+                    { icon: <Share2 className="w-3 h-3 text-muted-foreground" />, delay: 0 },
                     { icon: <div className="w-3 h-3 bg-blue-500 rounded-sm" />, delay: 0.1 },
                     { icon: <div className="w-3 h-3 bg-sky-500 rounded-sm" />, delay: 0.2 },
                     { icon: <div className="w-3 h-3 bg-pink-500 rounded-sm" />, delay: 0.3 },
@@ -182,22 +195,19 @@ const SocialStrategistVisual = () => {
                         key={i}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{
-                            delay: item.delay,
-                            duration: 0.4,
-                        }}
+                        transition={{ delay: item.delay, duration: 0.4 }}
                         whileHover={{ scale: 1.05, rotate: i % 2 === 0 ? 2 : -2 }}
-                        className="aspect-square border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 rounded-xl p-3 flex flex-col justify-between cursor-pointer group hover:shadow-md transition-all"
+                        className="aspect-square border border-border/60 bg-muted/30 rounded-xl p-3 flex flex-col justify-between cursor-pointer group hover:shadow-md hover:border-primary/20 transition-all"
                     >
                         <div className="flex justify-between items-start">
-                            <div className="w-6 h-6 bg-white dark:bg-black rounded-full flex items-center justify-center border border-neutral-100 dark:border-neutral-800">
+                            <div className="w-6 h-6 bg-card rounded-full flex items-center justify-center border border-border/40">
                                 {item.icon}
                             </div>
-                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                         </div>
                         <div className="space-y-1.5">
-                            <div className="h-1 bg-neutral-200 dark:bg-neutral-800 w-full rounded-full group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700 transition-colors" />
-                            <div className="h-1 bg-neutral-200 dark:bg-neutral-800 w-2/3 rounded-full group-hover:bg-neutral-300 dark:group-hover:bg-neutral-700 transition-colors" />
+                            <div className="h-1 bg-border w-full rounded-full" />
+                            <div className="h-1 bg-border w-2/3 rounded-full" />
                         </div>
                     </motion.div>
                 ))}

@@ -15,7 +15,6 @@ import { PublishHub } from "@/components/publish-hub";
 import { ArticleSkeleton, LinkedInSkeleton, TwitterSkeleton } from "@/components/skeletons";
 import { TranscriptDisplay } from "@/components/transcript-display";
 import { TypewriterText } from "@/components/typewriter-text";
-import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -291,15 +290,10 @@ const ContentDisplayCard = ({
   }, [content, startAnimation, showImmediately, showTranslation, currentTranslation]);
 
   return (
-    <div className="relative border border-dashed border-neutral-300 dark:border-neutral-800 bg-white dark:bg-black p-6 group transition-all duration-300 hover:border-emerald-500 hover:border-solid hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.3)]">
-      {/* Corner Markers - Animated */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-neutral-400 dark:border-neutral-600 group-hover:border-emerald-500 transition-colors duration-300" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-neutral-400 dark:border-neutral-600 group-hover:border-emerald-500 transition-colors duration-300" />
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-neutral-400 dark:border-neutral-600 group-hover:border-emerald-500 transition-colors duration-300" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-neutral-400 dark:border-neutral-600 group-hover:border-emerald-500 transition-colors duration-300" />
+    <div className="relative border border-border bg-card rounded-2xl p-6 group transition-all duration-300 hover:border-foreground/20 hover:shadow-xl">
 
       {/* ---- Header ---- */}
-      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-4 group-hover:border-emerald-500/30 transition-colors duration-300">
+      <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-border pb-4 transition-colors duration-300">
         <div>
           <div className="mb-2">
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border transition-all ${content.status === 'COMPLETE'
@@ -314,9 +308,9 @@ const ContentDisplayCard = ({
           <h3 className="text-2xl font-bold tracking-tight mb-2">
             {content.generatedTitle || "Processing Data Stream..."}
           </h3>
-          <p className="text-sm text-neutral-500 font-mono flex items-center">
-            <span className="w-2 h-2 bg-neutral-300 dark:bg-neutral-700 rounded-full mr-2 group-hover:bg-emerald-500 transition-colors" />
-            SOURCE: <a href={`${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-600 dark:hover:text-emerald-400 underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
+          <p className="text-sm text-muted-foreground font-mono flex items-center">
+            <span className="w-2 h-2 bg-muted-foreground/30 rounded-full mr-2 group-hover:bg-foreground/50 transition-colors" />
+            SOURCE: <a href={`${content.sourceUrl}`} target="_blank" rel="noopener noreferrer" className="hover:text-foreground underline decoration-dashed transition-colors ml-1">{content.sourceUrl}</a>
           </p>
         </div>
 
@@ -324,28 +318,28 @@ const ContentDisplayCard = ({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-none font-mono text-xs hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-emerald-600 dark:hover:text-emerald-400 mr-2 transition-colors"
+            className="rounded-lg font-mono text-xs hover:bg-accent mr-2 transition-colors"
             onClick={onExport}
           >
-            <Download className="mr-2 h-3 w-3" /> EXPORT
+            <Download className="mr-2 h-3 w-3" /> Export
           </Button>
 
           {currentTranslation && (
             <Button
               variant="outline"
-              className="rounded-none border-neutral-300 dark:border-neutral-700 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all"
+              className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent transition-all"
               onClick={() => setShowTranslation(!showTranslation)}
             >
-              {showTranslation ? "ORIGINAL" : "TRANSLATION"}
+              {showTranslation ? "Original" : "Translation"}
             </Button>
           )}
           <Button
             variant={currentTranslation ? "ghost" : "outline"}
-            className="rounded-none border-neutral-300 dark:border-neutral-700 hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all"
+            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent transition-all"
             onClick={() => onTranslateOpen(content._id)}
           >
             <Zap className="mr-2 h-4 w-4" />
-            {currentTranslation ? "CHANGE LANG" : "TRANSLATE"}
+            {currentTranslation ? "Change Lang" : "Translate"}
           </Button>
 
           {content.status === 'COMPLETE' && (
@@ -362,7 +356,7 @@ const ContentDisplayCard = ({
             <Activity className="w-4 h-4 text-primary" />
             <h4 className="font-bold text-sm uppercase tracking-widest">Source Feed</h4>
           </div>
-          <div className="aspect-video overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-black relative">
+          <div className="aspect-video overflow-hidden border border-border rounded-xl bg-black relative">
             <div className="absolute inset-0 bg-grid-white/[0.05] pointer-events-none" />
             <ReactPlayer
               src={`${content.sourceUrl}`}
@@ -372,11 +366,11 @@ const ContentDisplayCard = ({
             />
           </div>
 
-          <div className="flex items-center justify-between border-b border-dashed border-neutral-200 dark:border-neutral-800 pb-2">
+          <div className="flex items-center justify-between border-b border-border pb-2">
             <h4 className="font-bold text-sm uppercase tracking-widest">Executive Summary</h4>
             <CopyButton textToCopy={content.summary || ''} />
           </div>
-          <div className="font-mono text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+          <div className="font-mono text-sm leading-relaxed text-muted-foreground">
             <TypewriterText
               id={`${content._id}-summary-${showTranslation ? 'translated' : 'original'}`}
               text={
@@ -391,28 +385,28 @@ const ContentDisplayCard = ({
         {/* ---- Right Column ---- */}
         < div className="lg:col-span-2" >
           <Tabs defaultValue="article" className="w-full">
-            <TabsList className="w-full grid grid-cols-4 rounded-none border-b border-neutral-200 dark:border-neutral-800 bg-transparent p-0 mb-6">
+            <TabsList className="w-full grid grid-cols-4 rounded-none border-b border-border bg-transparent p-0 mb-6">
               <TabsTrigger
                 value="article"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-black dark:data-[state=active]:border-white h-12 font-mono text-xs uppercase tracking-widest hover:text-black dark:hover:text-white transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
               >
                 Article
               </TabsTrigger>
               <TabsTrigger
                 value="social"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-black dark:data-[state=active]:border-white h-12 font-mono text-xs uppercase tracking-widest hover:text-black dark:hover:text-white transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
               >
                 Social
               </TabsTrigger>
               <TabsTrigger
                 value="clips"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-black dark:data-[state=active]:border-white h-12 font-mono text-xs uppercase tracking-widest hover:text-black dark:hover:text-white transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
               >
                 Clips
               </TabsTrigger>
               <TabsTrigger
                 value="transcript"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-black dark:data-[state=active]:border-white h-12 font-mono text-xs uppercase tracking-widest hover:text-black dark:hover:text-white transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground h-12 font-mono text-xs uppercase tracking-widest hover:text-foreground transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
               >
                 Transcript
               </TabsTrigger>
@@ -421,7 +415,7 @@ const ContentDisplayCard = ({
             {/* --- Article Tab --- */}
             <TabsContent
               value="article"
-              className="mt-0 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 p-0 min-h-[800px]"
+              className="mt-0 bg-card border border-border rounded-xl p-0 min-h-[800px]"
             >
               {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                 <ArticleSkeleton />
@@ -533,7 +527,7 @@ const ContentDisplayCard = ({
             {/* --- Social Tab --- */}
             <TabsContent value="social" className="mt-0">
               <Tabs defaultValue="linkedin" className="w-full">
-                <TabsList className="flex w-full justify-center space-x-6 border-b border-neutral-200 dark:border-neutral-800 bg-transparent p-0 mb-6">
+                <TabsList className="flex w-full justify-center space-x-6 border-b border-border bg-transparent p-0 mb-6">
                   <TabsTrigger
                     value="linkedin"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#0a66c2] data-[state=active]:text-[#0a66c2] h-10 px-4 font-bold text-sm hover:text-[#0a66c2] transition-all data-[state=active]:shadow-none bg-transparent !bg-transparent !shadow-none !border-t-0 !border-l-0 !border-r-0"
@@ -550,7 +544,7 @@ const ContentDisplayCard = ({
 
                 <TabsContent
                   value="linkedin"
-                  className="p-0 bg-[#f3f2ef] dark:bg-black border border-neutral-200 dark:border-neutral-800"
+                  className="p-0 bg-[#f3f2ef] dark:bg-card border border-border rounded-xl"
                 >
                   {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                     <LinkedInSkeleton />
@@ -559,7 +553,7 @@ const ContentDisplayCard = ({
                       initial={{ opacity: 0, scale: 0.98 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.4 }}
-                      className="bg-white dark:bg-[#1b1f23] p-4 rounded-sm shadow-sm border border-neutral-300 dark:border-neutral-700 max-w-[555px] mx-auto my-8"
+                      className="bg-white dark:bg-card p-4 rounded-xl shadow-sm border border-border max-w-[555px] mx-auto my-8"
                     >
                       {/* Header */}
                       <div className="flex items-start mb-3">
@@ -749,7 +743,7 @@ const ContentDisplayCard = ({
             {/* --- Clips Tab --- */}
             <TabsContent
               value="clips"
-              className="mt-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 p-6 border border-neutral-200 dark:border-neutral-800 bg-neutral-50/30 dark:bg-neutral-900/30"
+              className="mt-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 p-6 border border-border rounded-xl bg-muted/30"
             >
               {(!content.clips || content.clips.length === 0) && (
                 <div className="col-span-full flex flex-col items-center justify-center py-12 text-neutral-500">
@@ -782,7 +776,7 @@ const ContentDisplayCard = ({
                   return (
                     <div
                       key={clip._id}
-                      className="group relative bg-black border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+                      className="group relative bg-black border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
                     >
                       <div className="relative aspect-[9/16] bg-black">
                         <video
@@ -794,7 +788,7 @@ const ContentDisplayCard = ({
                         <div className="absolute inset-0 pointer-events-none" />
                       </div>
 
-                      <div className="p-4 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
+                      <div className="p-4 border-t border-border bg-card">
                         <p className="font-bold text-xs text-black dark:text-white uppercase tracking-wider truncate mb-3">
                           {clip.title}
                         </p>
@@ -1232,84 +1226,78 @@ export default function DashboardPage() {
   const totalPosts = contents?.reduce((sum, item) => sum + (item.twitterThread?.length || 0), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div className="min-h-screen bg-background relative overflow-hidden">
       <Header />
-      <div className="relative pt-32 pb-24">
+      <div className="relative pt-28 pb-20 z-10">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="mb-16 flex flex-col md:flex-row justify-between items-end border-b border-dashed border-neutral-300 dark:border-neutral-800 pb-8">
+
+          <div className="mb-12 flex flex-col md:flex-row justify-between items-end border-b border-border pb-8 relative z-20">
             <div>
-              <h1 className="text-5xl font-bold tracking-tighter mb-2">Mission Control</h1>
-              <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest flex items-center">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tighter mb-2">Mission Control</h1>
+              <p className="text-muted-foreground font-mono text-sm uppercase tracking-widest flex items-center">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2" />
                 System Status: Online | {contents?.length || 0} Active Projects
               </p>
             </div>
             <Link href="/create">
-              <Button className="rounded-none bg-black text-white dark:bg-white dark:text-black font-bold uppercase tracking-wider px-8 h-12 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-500 dark:hover:text-white transition-all duration-300 relative overflow-hidden group cursor-pointer shadow-lg hover:shadow-emerald-500/20">
+              <Button className="rounded-xl bg-foreground text-background font-bold tracking-tight px-8 h-12 hover:opacity-90 transition-all duration-300 relative overflow-hidden group cursor-pointer shadow-lg mt-6 md:mt-0">
                 <span className="relative z-10 flex items-center">
-                  <Zap className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" /> Initialize New Project
+                  <Zap className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" /> New Project
                 </span>
               </Button>
             </Link>
           </div>
 
-          <BentoGrid className="mb-16">
-            <BentoGridItem
-              title="Completed Projects"
-              description="Total successfully processed content streams."
-              header={<div className="text-5xl font-bold font-mono tracking-tighter group-hover:text-emerald-500 transition-colors">{completedProjects}</div>}
-              icon={<FileText className="w-6 h-6 text-neutral-500 group-hover:text-emerald-500 transition-colors" />}
-              className="md:col-span-1 group hover:border-emerald-500/50 transition-colors"
-            />
-            <BentoGridItem
-              title="Processing Queue"
-              description="Active jobs currently in the neural pipeline."
-              header={<div className="text-5xl font-bold font-mono tracking-tighter text-amber-500">{processingProjects}</div>}
-              icon={<Activity className="w-6 h-6 text-amber-500 animate-pulse" />}
-              className="md:col-span-1 group hover:border-amber-500/50 transition-colors"
-            />
-            <BentoGridItem
-              title="Generated Assets"
-              description="Total clips and social posts created."
-              header={<div className="text-5xl font-bold font-mono tracking-tighter group-hover:text-purple-500 transition-colors">{totalClips + totalPosts}</div>}
-              icon={<Layers className="w-6 h-6 text-neutral-500 group-hover:text-purple-500 transition-colors" />}
-              className="md:col-span-1 group hover:border-purple-500/50 transition-colors"
-            />
-          </BentoGrid>
+          {/* Stat cards — clean inline, no heavy animation component */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 relative z-20">
+            {[
+              { value: completedProjects, label: "Completed", color: "text-foreground" },
+              { value: processingProjects, label: "Processing", color: "text-amber-500" },
+              { value: totalClips + totalPosts, label: "Total Output", color: "text-foreground" },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-border bg-card p-6 hover:border-foreground/20 transition-colors duration-300"
+              >
+                <div className={`text-4xl font-bold font-mono tracking-tighter ${stat.color}`}>{stat.value}</div>
+                <p className="mt-2 text-sm text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
+          </div>
 
-          <div className="space-y-16">
-            <div className="flex items-end justify-between border-b border-neutral-200 dark:border-neutral-800 pb-6">
+          <div className="space-y-10">
+            <div className="flex items-end justify-between border-b border-border pb-6">
               <div>
-                <h2 className="text-4xl md:text-5xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-neutral-900 via-neutral-600 to-neutral-900 dark:from-white dark:via-neutral-400 dark:to-white mb-2">
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-1">
                   Live Operations
                 </h2>
-                <p className="text-neutral-500 font-mono text-sm tracking-widest uppercase">
+                <p className="text-muted-foreground font-mono text-sm tracking-widest uppercase">
                   Real-time content processing stream
                 </p>
               </div>
-              <div className="hidden md:flex items-center space-x-2 text-xs font-mono text-neutral-400">
+              <div className="hidden md:flex items-center space-x-2 text-xs font-mono text-muted-foreground">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>SYSTEM OPTIMAL</span>
               </div>
             </div>
 
             {isLoading && (
-              <div className="border border-dashed border-neutral-300 p-12 text-center">
-                <div className="animate-spin w-8 h-8 border-2 border-black border-t-transparent mx-auto mb-4"></div>
-                <p className="font-mono text-sm uppercase">Fetching Data Stream...</p>
+              <div className="border border-border rounded-2xl p-12 text-center">
+                <div className="animate-spin w-8 h-8 border-2 border-foreground border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="font-mono text-sm text-muted-foreground">Fetching Data Stream...</p>
               </div>
             )}
 
             {error && <p className="text-center text-red-500 font-mono">ERROR: CONNECTION_REFUSED</p>}
 
             {contents?.length === 0 && (
-              <div className="text-center py-24 border border-dashed border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
-                <div className="w-16 h-16 mx-auto bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 flex items-center justify-center mb-6">
-                  <FileText className="w-8 h-8 text-neutral-400" />
+              <div className="text-center py-24 border border-border rounded-2xl bg-muted/20">
+                <div className="w-16 h-16 mx-auto bg-card border border-border rounded-2xl flex items-center justify-center mb-6">
+                  <FileText className="w-8 h-8 text-muted-foreground" />
                 </div>
                 <div className="space-y-2 mb-8">
                   <h3 className="text-xl font-bold">No Data Found</h3>
-                  <p className="text-neutral-500 font-mono text-sm">
+                  <p className="text-muted-foreground font-mono text-sm">
                     Initialize a new project to begin data processing.
                   </p>
                 </div>
@@ -1333,18 +1321,14 @@ export default function DashboardPage() {
               // Show skeleton/spinner for actively processing (non-stale) jobs
               if (['PENDING', 'GENERATING_TEXT', 'GENERATING_VIDEOS'].includes(content.status)) {
                 return (
-                  <div key={content._id} className="relative border border-dashed border-amber-300 dark:border-amber-800 bg-white dark:bg-black p-6 transition-all">
-                    <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-amber-400" />
-                    <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-amber-400" />
-                    <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-amber-400" />
-                    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-amber-400" />
+                  <div key={content._id} className="relative border border-amber-300/50 dark:border-amber-800/50 bg-card rounded-2xl p-6 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className="animate-spin rounded-none h-6 w-6 border-2 border-amber-300 border-t-amber-600 dark:border-amber-700 dark:border-t-amber-400"></div>
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-amber-300 border-t-amber-600 dark:border-amber-700 dark:border-t-amber-400"></div>
                       <div>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider border bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 animate-pulse">
                           {content.status.replace(/_/g, ' ')}
                         </span>
-                        <p className="text-sm text-neutral-500 font-mono mt-2">
+                        <p className="text-sm text-muted-foreground font-mono mt-2">
                           Processing your content... Started {formatTimeSince(content.createdAt)}
                         </p>
                       </div>
@@ -1373,13 +1357,13 @@ export default function DashboardPage() {
       </div>
 
       <Dialog open={isTranslateDialogOpen} onOpenChange={setIsTranslateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px] rounded-none border-black dark:border-white bg-white dark:bg-black p-0 overflow-hidden">
-          <div className="bg-neutral-50 dark:bg-neutral-900 p-6 border-b border-neutral-200 dark:border-neutral-800">
+        <DialogContent className="sm:max-w-[500px] rounded-2xl border-border bg-card p-0 overflow-hidden">
+          <div className="bg-muted/50 p-6 border-b border-border">
             <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-black dark:bg-white flex items-center justify-center">
-                <Languages className="w-4 h-4 text-white dark:text-black" />
+              <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
+                <Languages className="w-4 h-4 text-background" />
               </div>
-              <DialogTitle className="font-bold uppercase tracking-widest text-lg">Neural Translation</DialogTitle>
+              <DialogTitle className="font-bold tracking-tight text-lg">Neural Translation</DialogTitle>
             </div>
             <DialogDescription className="font-mono text-xs text-neutral-500">
               Select a target protocol for content localization.
@@ -1396,10 +1380,10 @@ export default function DashboardPage() {
                   value={targetLanguage}
                   onChange={(e) => setTargetLanguage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleTranslate()}
-                  className="rounded-none border-neutral-300 dark:border-neutral-700 focus:ring-0 focus:border-black dark:focus:border-white h-12 pl-4 font-mono text-sm"
+                  className="rounded-xl border-border focus:ring-0 focus:border-foreground h-12 pl-4 font-mono text-sm"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <span className="text-[10px] font-mono text-neutral-400 border border-neutral-200 dark:border-neutral-800 px-1.5 py-0.5">RETURN</span>
+                  <span className="text-[10px] font-mono text-muted-foreground border border-border px-1.5 py-0.5 rounded-md">RETURN</span>
                 </div>
               </div>
             </div>
@@ -1409,7 +1393,7 @@ export default function DashboardPage() {
                 <button
                   key={lang}
                   onClick={() => setTargetLanguage(lang)}
-                  className="text-left px-4 py-3 border border-dashed border-neutral-200 dark:border-neutral-800 hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-all text-sm font-mono"
+                  className="text-left px-4 py-3 border border-border rounded-xl hover:border-foreground/30 hover:bg-muted/50 transition-all text-sm font-mono"
                 >
                   {lang}
                 </button>
@@ -1417,18 +1401,18 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <DialogFooter className="p-6 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
+          <DialogFooter className="p-6 border-t border-border bg-muted/30">
             <Button
               variant="outline"
               onClick={() => setIsTranslateDialogOpen(false)}
-              className="rounded-none border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              className="rounded-xl border-border hover:bg-accent"
             >
               CANCEL
             </Button>
             <Button
               onClick={handleTranslate}
               disabled={isTranslating}
-              className="rounded-none bg-black text-white dark:bg-white dark:text-black hover:opacity-90 min-w-[120px]"
+              className="rounded-xl bg-foreground text-background hover:opacity-90 min-w-[120px]"
             >
               {isTranslating ? (
                 <>
@@ -1445,7 +1429,7 @@ export default function DashboardPage() {
       {/* Scroll To Top Button */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-8 right-8 z-50 p-3 bg-black dark:bg-white text-white dark:text-black shadow-lg transition-all duration-300 hover:scale-110 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
+        className={`fixed bottom-8 right-8 z-50 p-3 bg-foreground text-background rounded-xl shadow-lg transition-all duration-300 hover:scale-110 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'
           }`}
       >
         <ArrowUp className="w-6 h-6" />

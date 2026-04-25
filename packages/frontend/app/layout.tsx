@@ -1,20 +1,26 @@
 import { Providers } from "@/components/providers";
 import { BackgroundShader } from "@/components/ui/background-shader";
 import type { Metadata } from "next";
-import { DM_Serif_Display, Inter } from "next/font/google";
+import { Bricolage_Grotesque, Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const outfit = Outfit({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-outfit",
   display: "swap",
 });
 
-const dmSerif = DM_Serif_Display({
-  weight: "400",
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  variable: "--font-dm-serif",
+  variable: "--font-bricolage",
   display: "swap",
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   `
         }} />
       </head>
-      <body className={`${inter.variable} ${dmSerif.variable} font-sans antialiased bg-transparent text-neutral-900 dark:text-neutral-50`}>
+      <body className={`${outfit.variable} ${bricolage.variable} ${jetbrains.variable} antialiased selection:bg-foreground/10 min-h-screen flex flex-col`}>
         <BackgroundShader />
         <div className="animate-page-blur">
           <Providers>{children}</Providers>

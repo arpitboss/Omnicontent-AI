@@ -4,15 +4,6 @@ import { useEffect, useRef } from "react";
 
 export function BackgroundShader() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const mouseRef = useRef({ x: 0, y: 0 });
-
-    useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            mouseRef.current = { x: e.clientX, y: e.clientY };
-        };
-        window.addEventListener("mousemove", handleMouseMove);
-        return () => window.removeEventListener("mousemove", handleMouseMove);
-    }, []);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -25,7 +16,6 @@ export function BackgroundShader() {
         let time = 0;
         let isDark = document.documentElement.classList.contains("dark");
 
-        // Optimize: Use MutationObserver instead of polling DOM every frame
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.attributeName === "class") {
@@ -40,63 +30,74 @@ export function BackgroundShader() {
         });
 
         const resize = () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = `${window.innerWidth}px`;
+            canvas.style.height = `${window.innerHeight}px`;
+            ctx.scale(dpr, dpr);
         };
 
         window.addEventListener("resize", resize);
         resize();
 
+        const w = () => window.innerWidth;
+        const h = () => window.innerHeight;
+
         const draw = () => {
-            time += 0.002; // Smooth, slow movement
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            time += 0.0012;
+            ctx.clearRect(0, 0, w(), h());
 
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-
-            // Deep Slate / Teal Theme
+            // Base gradient — monochrome
+            const baseGradient = ctx.createLinearGradient(0, 0, w(), h());
             if (isDark) {
-                gradient.addColorStop(0, "#020617"); // Slate 950
-                gradient.addColorStop(0.5, "#0f172a"); // Slate 900
-                gradient.addColorStop(1, "#0f172a"); // Slate 900
+                baseGradient.addColorStop(0, "#0e0e11");
+                baseGradient.addColorStop(0.5, "#101014");
+                baseGradient.addColorStop(1, "#0d0d10");
             } else {
-                gradient.addColorStop(0, "#f8fafc"); // Slate 50
-                gradient.addColorStop(0.5, "#f1f5f9"); // Slate 100
-                gradient.addColorStop(1, "#e2e8f0"); // Slate 200
+                baseGradient.addColorStop(0, "#fafafa");
+                baseGradient.addColorStop(0.5, "#f7f7f8");
+                baseGradient.addColorStop(1, "#f5f5f6");
             }
 
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = baseGradient;
+            ctx.fillRect(0, 0, w(), h());
 
-            // Premium Gradient Mesh
+            // Ambient orbs — very subtle grays
             const orbs = [
-                { x: Math.sin(time * 0.3) * 0.3 + 0.5, y: Math.cos(time * 0.2) * 0.3 + 0.5, r: 0.6, color: isDark ? "rgba(20, 184, 166, 0.08)" : "rgba(148, 163, 184, 0.15)" }, // Teal/Slate
-                { x: Math.cos(time * 0.4) * 0.3 + 0.5, y: Math.sin(time * 0.3) * 0.3 + 0.5, r: 0.5, color: isDark ? "rgba(99, 102, 241, 0.08)" : "rgba(203, 213, 225, 0.15)" }, // Indigo/Slate
-                { x: Math.sin(time * 0.2 + 2) * 0.3 + 0.5, y: Math.cos(time * 0.3 + 1) * 0.3 + 0.5, r: 0.7, color: isDark ? "rgba(15, 23, 42, 0.5)" : "rgba(255, 255, 255, 0.8)" }, // Deep/Light mask
+                {
+                    x: Math.sin(time * 0.3) * 0.25 + 0.3,
+                    y: Math.cos(time * 0.2) * 0.2 + 0.3,
+                    r: 0.55,
+                    color: isDark ? "rgba(255, 255, 255, 0.012)" : "rgba(0, 0, 0, 0.012)",
+                },
+                {
+                    x: Math.cos(time * 0.25) * 0.25 + 0.7,
+                    y: Math.sin(time * 0.35) * 0.2 + 0.6,
+                    r: 0.5,
+                    color: isDark ? "rgba(255, 255, 255, 0.008)" : "rgba(0, 0, 0, 0.008)",
+                },
             ];
 
-            orbs.forEach(orb => {
-                const x = orb.x * canvas.width;
-                const y = orb.y * canvas.height;
-                const radius = Math.max(canvas.width, canvas.height) * orb.r;
+            orbs.forEach((orb) => {
+                const x = orb.x * w();
+                const y = orb.y * h();
+                const radius = Math.max(w(), h()) * orb.r;
 
-                const blobGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                if (isDark) {
-                    blobGradient.addColorStop(0, `rgba(20, 184, 166, 0.03)`);
-                    blobGradient.addColorStop(1, `rgba(20, 184, 166, 0)`);
-                } else {
-                    blobGradient.addColorStop(0, `rgba(51, 65, 85, 0.03)`);
-                    blobGradient.addColorStop(1, `rgba(51, 65, 85, 0)`);
-                }
+                const orbGradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                orbGradient.addColorStop(0, orb.color);
+                orbGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
 
-                ctx.fillStyle = blobGradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = orbGradient;
+                ctx.fillRect(0, 0, w(), h());
             });
         };
 
-        animationFrameId = requestAnimationFrame(function animate() {
+        const animate = () => {
             draw();
             animationFrameId = requestAnimationFrame(animate);
-        });
+        };
+        animationFrameId = requestAnimationFrame(animate);
 
         return () => {
             window.removeEventListener("resize", resize);

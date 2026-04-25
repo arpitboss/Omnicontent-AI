@@ -300,7 +300,7 @@ function TokenInputDialog({
 }) {
   if (!platform) return null;
 
-  const isTwitter = platform === "twitter";
+  
   const PlatformIcon = XTwitterIcon;
   const platformName = "X / Twitter";
   
