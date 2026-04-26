@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ReactPlayer from "react-player";
 import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
@@ -64,7 +64,9 @@ import {
   Trash2,
   X,
   XCircle,
-  Zap
+  Zap,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 
 // ---------------- Interfaces ----------------
@@ -298,6 +300,8 @@ const ContentDisplayCard = ({
   isExporting: boolean;
   downloadInfo?: { url: string; filename: string; expiresAt: number };
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { startAnimation, showImmediately } = useTypewriterManager();
   const currentTranslation = translationCache[content._id];
 
@@ -333,7 +337,10 @@ const ContentDisplayCard = ({
   } catch { /* fall back to raw URL */ }
 
   return (
-    <div className="relative border border-border bg-card rounded-2xl p-5 transition-colors duration-200 hover:border-foreground/20">
+    <div 
+      ref={cardRef}
+      className="relative border border-border bg-card rounded-2xl p-5 transition-colors duration-200 hover:border-foreground/20 scroll-mt-24"
+    >
 
       {/* ---- Header ---- */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-3 mb-5 border-b border-border pb-4">
@@ -349,7 +356,7 @@ const ContentDisplayCard = ({
               {content.status === 'COMPLETE' ? 'Ready' : content.status === 'FAILED' ? 'Failed' : 'Processing'}
             </span>
           </div>
-          <h3 className="text-2xl font-semibold tracking-tight mb-3 text-foreground truncate max-w-[500px]">
+          <h3 className="text-2xl font-semibold tracking-tight mb-3 text-foreground">
             {content.generatedTitle || "Untitled project"}
           </h3>
           <a
@@ -489,63 +496,53 @@ const ContentDisplayCard = ({
                 <ArticleSkeleton />
               ) : (
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="max-w-[720px] mx-auto py-10 px-6"
-                  >
-                    {/* Hero Image */}
-                    <div className="mb-8 relative aspect-video w-full overflow-hidden rounded-md shadow-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`https://image.pollinations.ai/prompt/${encodeURIComponent((content.generatedTitle || "abstract") + " cinematic, photorealistic, 4k, dramatic lighting, no text")}?width=1280&height=720&nologo=true`}
-                        alt="Article Hero"
-                        className="object-cover w-full h-full hover:scale-105 transition-transform duration-700"
-                      />
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="max-w-[720px] mx-auto py-10 px-6"
+                >
+                  {/* Hero Image */}
+                  <div className="mb-8 relative aspect-video w-full overflow-hidden rounded-md shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://image.pollinations.ai/prompt/${encodeURIComponent((content.generatedTitle || "abstract") + " cinematic, photorealistic, 4k, dramatic lighting, no text")}?width=1280&height=720&nologo=true`}
+                      alt="Article Hero"
+                      className="object-cover w-full h-full hover:scale-105 transition-transform duration-700"
+                    />
+                  </div>
+
+                  {/* Title Area */}
+                  <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-6 mt-8 font-sans leading-tight">
+                    {content.generatedTitle || "Untitled draft"}
+                  </h1>
+
+                  {/* Author/Meta */}
+                  <div className="flex items-center space-x-4 mb-8 border-b border-border pb-6">
+                    <div className="w-10 h-10 rounded-full bg-[var(--accent-500)]/15 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-[var(--accent-500)]" />
                     </div>
-
-                    {/* Title Area */}
-                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground mb-6 mt-8 font-sans leading-tight">
-                      {content.generatedTitle || "Untitled draft"}
-                    </h1>
-
-                    {/* Author/Meta */}
-                    <div className="flex items-center space-x-4 mb-8 border-b border-border pb-6">
-                      <div className="w-10 h-10 rounded-full bg-[var(--accent-500)]/15 flex items-center justify-center">
-                        <Zap className="w-5 h-5 text-[var(--accent-500)]" />
-                      </div>
-                      <div>
-                        <div className="font-sans font-medium text-foreground">OmniContent AI</div>
-                        <div className="font-sans text-sm text-muted-foreground">
-                          {new Date(content.createdAt).toLocaleDateString()} · 5 min read
-                        </div>
-                      </div>
-                      <div className="ml-auto flex space-x-2">
-                        <CopyButton textToCopy={content.generatedContent || ''} />
+                    <div>
+                      <div className="font-sans font-medium text-foreground">OmniContent AI</div>
+                      <div className="font-sans text-sm text-muted-foreground">
+                        {new Date(content.createdAt).toLocaleDateString()} · 5 min read
                       </div>
                     </div>
+                    <div className="ml-auto flex space-x-2">
+                      <CopyButton textToCopy={content.generatedContent || ''} />
+                    </div>
+                  </div>
 
-                    {/* Content */}
+                  {/* Content Area with Read More */}
+                  <div className={`relative transition-all duration-1000 ease-in-out ${isExpanded ? 'max-h-[10000px]' : 'max-h-[500px] overflow-hidden'}`}>
                     <article className="prose prose-lg prose-neutral dark:prose-invert max-w-none [&>p:first-of-type]:first-letter:text-7xl [&>p:first-of-type]:first-letter:font-bold [&>p:first-of-type]:first-letter:text-neutral-900 [&>p:first-of-type]:first-letter:dark:text-neutral-100 [&>p:first-of-type]:first-letter:mr-3 [&>p:first-of-type]:first-letter:float-left [&>p:first-of-type]:first-letter:leading-[0.8]">
                       <TypewriterText
                         id={`${content._id}-article-${showTranslation ? 'translated' : 'original'}`}
                         components={{
-                          p: ({ ...props }) => {
-                            const children = (props as { children?: { type: string, value: string }[] }).children;
-                            const text =
-                              children?.[0]?.type === "text"
-                                ? children[0].value
-                                : "";
-                            if (text.startsWith("[Image:")) {
-                              return <BlogImageRenderer src={text} />;
-                            }
-                            // Medium style paragraph: Serif, large, relaxed, proper spacing
-                            return (
-                              <ScrollReveal>
-                                <p {...props} className="font-serif text-[19px] leading-[30px] text-[#242424] dark:text-[#e5e5e5] mb-6" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
-                              </ScrollReveal>
-                            );
-                          },
+                          p: ({ ...props }) => (
+                            <ScrollReveal>
+                              <p {...props} className="mb-6 font-serif text-[19px] leading-[30px] text-foreground/85 antialiased" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
+                            </ScrollReveal>
+                          ),
                           h1: ({ ...props }) => (
                             <ScrollReveal>
                               <h1 {...props} className="font-sans font-bold text-2xl md:text-3xl mb-5 mt-10 text-foreground tracking-tight leading-tight" />
@@ -585,7 +582,39 @@ const ContentDisplayCard = ({
                         }
                       />
                     </article>
-                  </motion.div>
+
+                    {!isExpanded && (
+                      <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-card via-card/90 to-transparent flex items-end justify-center pb-12 pointer-events-none">
+                        <Button 
+                          onClick={() => setIsExpanded(true)}
+                          variant="outline"
+                          className="rounded-full px-8 py-6 h-auto border-border bg-card/50 backdrop-blur-md hover:bg-card hover:border-foreground/30 shadow-2xl group pointer-events-auto transition-all hover:scale-105"
+                        >
+                          <ChevronDown className="mr-2 w-5 h-5 group-hover:animate-bounce" />
+                          <span className="font-semibold tracking-tight">Read Full Article</span>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isExpanded && (
+                    <div className="flex justify-center py-10 border-t border-border/50 mt-10">
+                      <Button 
+                        onClick={() => {
+                          setIsExpanded(false);
+                          setTimeout(() => {
+                            cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }, 10);
+                        }}
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-foreground group rounded-full"
+                      >
+                        <ChevronUp className="mr-2 w-4 h-4 group-hover:-translate-y-1 transition-transform" />
+                        Show Less
+                      </Button>
+                    </div>
+                  )}
+                </motion.div>
               )}
             </TabsContent>
 
