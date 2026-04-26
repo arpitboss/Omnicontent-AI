@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Check, Copy } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 
 interface CopyButtonProps {
     textToCopy: string;
@@ -24,19 +25,33 @@ export const CopyButton = ({ textToCopy }: CopyButtonProps) => {
             variant="ghost"
             size="sm"
             onClick={handleCopy}
-            className="h-8 px-2.5 text-xs hover:bg-accent transition-colors rounded-md text-muted-foreground"
+            className="h-8 px-2.5 text-xs hover:bg-accent transition-all duration-200 rounded-md text-muted-foreground active:scale-95"
         >
-            {hasCopied ? (
-                <span className="flex items-center text-[var(--accent-500)]">
-                    <Check className="h-3.5 w-3.5 mr-1.5" />
-                    Copied
-                </span>
-            ) : (
-                <span className="flex items-center hover:text-foreground transition-colors">
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy
-                </span>
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+                {hasCopied ? (
+                    <motion.span
+                        key="copied"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
+                        className="flex items-center text-[var(--accent-500)] font-medium"
+                    >
+                        <Check className="h-3.5 w-3.5 mr-1.5 stroke-[2.5px]" />
+                        Copied!
+                    </motion.span>
+                ) : (
+                    <motion.span
+                        key="copy"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex items-center hover:text-foreground transition-colors"
+                    >
+                        <Copy className="h-3.5 w-3.5 mr-1.5" />
+                        Copy
+                    </motion.span>
+                )}
+            </AnimatePresence>
         </Button>
     );
 };

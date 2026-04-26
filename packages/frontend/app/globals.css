@@ -269,9 +269,7 @@
 
   html {
     scroll-behavior: smooth;
-    /* Always reserve space for the scrollbar gutter so opening
-       a Radix Dialog / DropdownMenu / Select (which locks scroll)
-       does not cause horizontal layout shift. */
+    /* Reserve space for scrollbar gutter to prevent layout shift */
     scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -288,22 +286,17 @@
       color var(--dur-base) var(--ease-out-soft);
   }
 
-  /* ── Radix scroll-lock shift fix ──────────────────────────────────────
-     When Radix locks scroll it adds inline `padding-right` / `margin-right`
-     to compensate for a vanishing scrollbar. Since `scrollbar-gutter: stable`
-     above already reserves that space, Radix's compensation produces a
-     visible horizontal jump. Neutralize the inline styles it adds. */
+  /* ── Scroll-lock shift fix (Clerk & Radix) ──────────────────────────
+     Neutralize any margin/padding added by libraries trying to compensate 
+     for a disappearing scrollbar. We target multiple common lock signals. */
   html[data-scroll-locked],
-  html[data-scroll-locked] body {
+  body[data-scroll-locked],
+  html.clerk-modal-open,
+  body.clerk-modal-open,
+  body[style*="overflow: hidden"],
+  html[style*="overflow: hidden"] {
     margin-right: 0 !important;
     padding-right: 0 !important;
-    overflow: visible !important;
-  }
-  /* Some Radix versions also set this on body directly. */
-  body[data-scroll-locked] {
-    margin-right: 0 !important;
-    padding-right: 0 !important;
-    overflow: visible !important;
   }
 
   ::selection {

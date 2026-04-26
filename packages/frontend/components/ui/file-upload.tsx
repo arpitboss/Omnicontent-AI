@@ -2,8 +2,11 @@
 import { cn } from "@/lib/utils";
 import React, { useRef, useState } from "react";
 import { motion } from "motion/react";
-import { IconUpload } from "@tabler/icons-react";
+import { IconUpload, IconX } from "@tabler/icons-react";
 import { useDropzone } from "react-dropzone";
+import { toast } from "sonner";
+
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 
 const mainVariant = {
   initial: {
@@ -35,7 +38,7 @@ export const FileUpload = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (newFiles: File[]) => {
-    setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    setFiles(newFiles);
     if (onChange) {
       onChange(newFiles);
     }
@@ -48,9 +51,26 @@ export const FileUpload = ({
   const { getRootProps, isDragActive } = useDropzone({
     multiple: false,
     noClick: true,
+    accept: {
+      "video/*": [".mp4", ".mov", ".avi", ".mkv", ".webm"],
+    },
+    maxSize: MAX_FILE_SIZE,
     onDrop: handleFileChange,
-    onDropRejected: (error) => {
-      console.log(error);
+    onDropRejected: (fileRejections) => {
+      const error = fileRejections[0]?.errors[0];
+      if (error?.code === "file-invalid-type") {
+        toast.error("Invalid file type", {
+          description: "Please upload a video file (mp4, mov, etc).",
+        });
+      } else if (error?.code === "file-too-large") {
+        toast.error("File too large", {
+          description: "Maximum upload size is 500MB.",
+        });
+      } else {
+        toast.error("Upload failed", {
+          description: error?.message || "Please try again.",
+        });
+      }
     },
   });
 
@@ -65,7 +85,23 @@ export const FileUpload = ({
           ref={fileInputRef}
           id="file-upload-handle"
           type="file"
-          onChange={(e) => handleFileChange(Array.from(e.target.files || []))}
+          accept="video/*"
+          onChange={(e) => {
+            const selectedFiles = Array.from(e.target.files || []);
+            const validFiles = selectedFiles.filter(f => f.size <= MAX_FILE_SIZE && f.type.startsWith("video/"));
+            
+            if (validFiles.length < selectedFiles.length) {
+              if (selectedFiles.some(f => !f.type.startsWith("video/"))) {
+                toast.error("Only video files are allowed.");
+              } else {
+                toast.error("Some files are too large (Max 500MB).");
+              }
+            }
+            
+            if (validFiles.length > 0) {
+              handleFileChange(validFiles);
+            }
+          }}
           className="hidden"
         />
         <div className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]">
@@ -98,14 +134,28 @@ export const FileUpload = ({
                     >
                       {file.name}
                     </motion.p>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      layout
-                      className="shadow-input w-fit shrink-0 rounded-lg px-2 py-1 text-sm text-neutral-600 dark:bg-neutral-800 dark:text-white"
-                    >
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB
-                    </motion.p>
+                    <div className="flex items-center gap-2">
+                      <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        layout
+                        className="shadow-input w-fit shrink-0 rounded-lg px-2 py-1 text-sm text-neutral-600 dark:bg-neutral-800 dark:text-white"
+                      >
+                        {(file.size / (1024 * 1024)).toFixed(2)} MB
+                      </motion.p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const updatedFiles = files.filter((_, i) => i !== idx);
+                          setFiles(updatedFiles);
+                          if (onChange) onChange(updatedFiles);
+                          toast.success("File removed");
+                        }}
+                        className="p-1 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors text-neutral-500 hover:text-red-500"
+                      >
+                        <IconX className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-2 flex w-full flex-col items-start justify-between text-sm text-neutral-600 md:flex-row md:items-center dark:text-neutral-400">

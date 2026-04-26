@@ -85,15 +85,31 @@ export const ClipPreview = ({ src, wordEvents, clipStart }: ClipPreviewProps) =>
   }, [wordEvents, clipStart]);
 
   return (
-    <div className="relative w-full h-full">
+    <div 
+      className="relative w-full h-full group/video cursor-pointer"
+      onMouseEnter={() => videoRef.current?.play().catch(() => {})}
+      onMouseLeave={() => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+          videoRef.current.currentTime = 0;
+        }
+      }}
+    >
       <video
         ref={videoRef}
         src={src}
-        controls
         muted
         playsInline
         className="w-full h-full object-cover"
       />
+      
+      {/* Hover Overlay */}
+      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/video:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+         <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[11px] font-medium tracking-wide">
+            Previewing
+         </div>
+      </div>
+
       {activeText && (
         <div
           className="pointer-events-none absolute left-2 right-2 bottom-12 flex justify-center px-2"

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Clock, Copy, Download, Eye, FileText, Languages, Search } from 'lucide-react';
+import { Clock, Copy, Download, Eye, FileText, Languages, Search, Zap } from 'lucide-react';
 import { useState } from 'react';
 
 interface TranscriptSegment {
@@ -15,16 +15,25 @@ interface TranscriptDisplayProps {
   translatedText?: string;
   targetLanguage?: string;
   onShowOriginal: () => void;
+  highlightRanges?: { start: number; end: number; label?: string }[];
 }
 
 export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
   transcript,
   translatedText,
   targetLanguage,
-  onShowOriginal
+  onShowOriginal,
+  highlightRanges = []
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [copied, setCopied] = useState(false);
+
+  const timestampToSeconds = (ts: string) => {
+    const parts = ts.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  };
 
   const isTranslated = !!translatedText;
   const linesToDisplay = isTranslated
@@ -193,8 +202,15 @@ export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
             </Button>
           </div>
         ) : (
-          <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
-            <table className="w-full text-sm">
+          <div className="max-h-[600px] overflow-y-auto custom-scrollbar relative">
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 z-30">
+                <tr className="bg-muted/90 backdrop-blur-md border-b border-border">
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-widest w-24">Time</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Content</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-widest w-32">Analysis</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-border/50">
                 {filteredLines.map((line, index) => {
                   const isHighlighted = searchTerm && line.text.toLowerCase().includes(searchTerm.toLowerCase());
@@ -208,14 +224,20 @@ export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
                   return (
                     <tr
                       key={index}
-                      className={`group hover:bg-accent/30 transition-colors ${isHighlighted ? 'bg-[var(--accent-500)]/[0.04]' : ''}`}
+                      className={`group hover:bg-accent/50 dark:hover:bg-white/[0.03] transition-colors relative ${isHighlighted ? 'bg-[var(--accent-500)]/[0.04]' : ''}`}
                     >
-                      <td className="px-4 py-3 w-20 align-top">
+                      <td className="px-4 py-3 w-20 align-top relative">
+                        {highlightRanges.some(r => {
+                          const sec = timestampToSeconds(line.timestamp);
+                          return sec >= r.start && sec <= r.end;
+                        }) && (
+                           <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] z-10" />
+                        )}
                         <span className="font-mono text-[11.5px] text-muted-foreground select-none tabular-nums">
                           {line.timestamp}
                         </span>
                       </td>
-                      <td className="px-4 py-3 align-top pr-5">
+                      <td className="px-4 py-3 align-top pr-5 min-w-0">
                         <div className="leading-relaxed text-foreground/85">
                           {searchTerm && isHighlighted ? (
                             <span dangerouslySetInnerHTML={{ __html: highlightedText }} />
@@ -223,6 +245,17 @@ export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
                             line.text
                           )}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 align-top text-right w-32">
+                        {highlightRanges.some(r => {
+                          const sec = timestampToSeconds(line.timestamp);
+                          return sec >= r.start && sec <= r.end;
+                        }) && (
+                          <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tighter whitespace-nowrap">
+                            <Zap className="w-2.5 h-2.5 fill-amber-500" />
+                            Viral Hook
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

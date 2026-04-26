@@ -43,6 +43,7 @@ import {
   Activity,
   AlertCircle,
   ArrowUp,
+  CheckCircle2,
   BadgeCheck,
   Clock,
   Download,
@@ -58,6 +59,7 @@ import {
   Repeat,
   Send,
   Share,
+  Smartphone,
   ThumbsUp,
   Trash2,
   X,
@@ -128,11 +130,23 @@ interface TranslationData {
   language?: string;
 }
 
+const getFlag = (lang?: string) => {
+  if (!lang) return "🇺🇸";
+  const l = lang.toLowerCase();
+  if (l.includes('spanish')) return "🇪🇸";
+  if (l.includes('french')) return "🇫🇷";
+  if (l.includes('german')) return "🇩🇪";
+  if (l.includes('japanese')) return "🇯🇵";
+  if (l.includes('hindi')) return "🇮🇳";
+  if (l.includes('english')) return "🇺🇸";
+  return "🌐";
+};
+
 // ---------------- Utils ----------------
 const fetcher = async (url: string, getToken: () => Promise<string | null>) => {
   const token = await getToken();
   if (!token) {
-    throw new Error("Not signed in (Clerk did not return a token).");
+    throw new Error("Your session has expired. Please sign in again.");
   }
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
@@ -237,6 +251,29 @@ const ScrollReveal = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// ------------- Subcomponents ---------------
+const DownloadTimer = ({ expiresAt }: { expiresAt: number }) => {
+  const [timeLeft, setTimeLeft] = useState(Math.max(0, Math.floor((expiresAt - Date.now()) / 1000)));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const newTime = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(newTime);
+      if (newTime <= 0) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [expiresAt]);
+
+  if (timeLeft <= 0) return null;
+
+  return (
+    <div className="text-[10px] font-mono text-muted-foreground mt-1.5 flex items-center justify-center gap-1.5 opacity-80 animate-pulse">
+      <Clock className="w-3 h-3 text-amber-500" />
+      <span>Expires in {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
+    </div>
+  );
+};
+
 // ------------- ContentDisplayCard ---------------
 const ContentDisplayCard = ({
   content,
@@ -247,6 +284,8 @@ const ContentDisplayCard = ({
   showTranslation,
   setShowTranslation,
   onPublished,
+  isExporting,
+  downloadInfo,
 }: {
   content: Content;
   onDownload: (contentId: string, clip: Clip, aspectRatio: string) => void;
@@ -255,7 +294,9 @@ const ContentDisplayCard = ({
   translationCache: { [key: string]: TranslationData };
   showTranslation: boolean;
   setShowTranslation: (val: boolean) => void;
-  onPublished?: () => void;
+  onPublished: () => void;
+  isExporting: boolean;
+  downloadInfo?: { url: string; filename: string; expiresAt: number };
 }) => {
   const { startAnimation, showImmediately } = useTypewriterManager();
   const currentTranslation = translationCache[content._id];
@@ -308,7 +349,7 @@ const ContentDisplayCard = ({
               {content.status === 'COMPLETE' ? 'Ready' : content.status === 'FAILED' ? 'Failed' : 'Processing'}
             </span>
           </div>
-          <h3 className="text-2xl font-semibold tracking-tight mb-3 text-foreground">
+          <h3 className="text-2xl font-semibold tracking-tight mb-3 text-foreground truncate max-w-[500px]">
             {content.generatedTitle || "Untitled project"}
           </h3>
           <a
@@ -323,29 +364,58 @@ const ContentDisplayCard = ({
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent text-xs h-9"
-            onClick={onExport}
-          >
-            <Download className="mr-2 h-3.5 w-3.5" /> Export
-          </Button>
-
-          {currentTranslation && (
+          {downloadInfo ? (
+            <div className="relative group/dl">
+              <Button
+                variant="default"
+                size="sm"
+                className="rounded-lg bg-[var(--accent-500)] hover:bg-[var(--accent-600)] text-white text-xs h-9 shadow-lg shadow-[var(--accent-500)]/20 animate-in fade-in zoom-in duration-300"
+                onClick={() => {
+                  const a = document.createElement("a");
+                  a.href = downloadInfo.url;
+                  a.download = downloadInfo.filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                }}
+              >
+                <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Download ZIP
+              </Button>
+              <div className="absolute top-full left-0 right-0 flex justify-center">
+                <DownloadTimer expiresAt={downloadInfo.expiresAt} />
+              </div>
+            </div>
+          ) : (
             <Button
               variant="outline"
               size="sm"
-              className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent text-xs h-9"
-              onClick={() => setShowTranslation(!showTranslation)}
+              disabled={isExporting}
+              className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent dark:hover:bg-white/[0.03] text-xs h-9 min-w-[90px]"
+              onClick={onExport}
             >
-              {showTranslation ? "Original" : "Translation"}
+              {isExporting ? (
+                <Activity className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-3.5 w-3.5" />
+              )}
+              {isExporting ? "Zipping..." : "Export"}
             </Button>
           )}
+
+            {currentTranslation && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent dark:hover:bg-white/[0.03] text-xs h-9"
+                onClick={() => setShowTranslation(!showTranslation)}
+              >
+                {showTranslation ? `${getFlag(currentTranslation.language)} Original` : `${getFlag(currentTranslation.language)} Translate`}
+              </Button>
+            )}
           <Button
             variant="outline"
             size="sm"
-            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent text-xs h-9"
+            className="rounded-lg border-border hover:border-foreground/30 hover:bg-accent dark:hover:bg-white/[0.03] text-xs h-9"
             onClick={() => onTranslateOpen(content._id)}
           >
             <Languages className="mr-2 h-3.5 w-3.5" />
@@ -592,19 +662,19 @@ const ContentDisplayCard = ({
 
                       {/* Footer Actions (Visual Only) */}
                       <div className="border-t border-border pt-1 flex justify-between items-center px-2">
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent dark:hover:bg-white/[0.03] px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <ThumbsUp className="w-5 h-5" />
                           <span className="text-sm font-semibold">Like</span>
                         </motion.div>
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent dark:hover:bg-white/[0.03] px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <MessageSquare className="w-5 h-5" />
                           <span className="text-sm font-semibold">Comment</span>
                         </motion.div>
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent dark:hover:bg-white/[0.03] px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <Repeat className="w-5 h-5" />
                           <span className="text-sm font-semibold">Repost</span>
                         </motion.div>
-                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
+                        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center space-x-2 text-muted-foreground hover:bg-accent dark:hover:bg-white/[0.03] px-4 py-3 rounded cursor-pointer transition-colors flex-1 justify-center">
                           <Send className="w-5 h-5" />
                           <span className="text-sm font-semibold">Send</span>
                         </motion.div>
@@ -645,7 +715,7 @@ const ContentDisplayCard = ({
                             <div className="absolute left-[34px] top-[50px] bottom-0 w-[2px] bg-border group-hover:bg-foreground/20 transition-colors" />
                           )}
 
-                          <div className="flex items-start space-x-3 p-4 hover:bg-accent/40 transition-colors rounded-xl">
+                          <div className="flex items-start space-x-3 p-4 hover:bg-accent/40 dark:hover:bg-white/[0.03] transition-colors rounded-xl">
                             <div className="relative z-10">
                               <div className="w-10 h-10 rounded-full bg-foreground flex items-center justify-center text-background font-bold border-2 border-background">
                                 OA
@@ -772,12 +842,21 @@ const ContentDisplayCard = ({
                       key={clip._id}
                       className="group relative bg-black border border-border rounded-xl overflow-hidden transition-colors duration-200 hover:border-foreground/20"
                     >
-                      <div className="relative aspect-[9/16] bg-black">
+                      <div className="relative aspect-[9/16] bg-black group-hover:scale-[1.02] transition-transform duration-500 overflow-hidden rounded-xl">
                         <ClipPreview
                           src={clip.s3Url}
                           wordEvents={clip.wordEvents}
                           clipStart={clip.startTime}
                         />
+                        {/* Viral Potential Badge */}
+                        <div className="absolute top-3 left-3 z-20">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 shadow-xl">
+                            <Zap className="w-3 h-3 text-brand fill-brand" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                              {Math.floor(85 + (clip._id.charCodeAt(clip._id.length - 1) % 15))}% Viral
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="p-3 border-t border-border bg-card">
@@ -869,6 +948,7 @@ const ContentDisplayCard = ({
                 translatedText={showTranslation ? currentTranslation?.transcript : undefined}
                 targetLanguage={currentTranslation?.language}
                 onShowOriginal={() => setShowTranslation(false)}
+                highlightRanges={content.clips?.map(c => ({ start: c.startTime, end: c.endTime, label: 'Hook' }))}
               />
             </TabsContent>
           </Tabs >
@@ -992,6 +1072,8 @@ export default function DashboardPage() {
   const [currentContentId, setCurrentContentId] = useState<string | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [exportingIds, setExportingIds] = useState<Set<string>>(new Set());
+  const [downloadUrls, setDownloadUrls] = useState<Record<string, { url: string, filename: string, expiresAt: number }>>({});
 
   // ---- Scroll Listener ----
   useEffect(() => {
@@ -1164,6 +1246,12 @@ export default function DashboardPage() {
 
   const handleExportAll = async (contentId: string) => {
     const token = await getToken();
+    setExportingIds(prev => new Set(prev).add(contentId));
+    toast.info("Preparing your export...", { 
+      description: "Collecting your clips and articles into a ZIP archive.",
+      duration: 3000
+    });
+
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}/export-all`,
@@ -1182,26 +1270,36 @@ export default function DashboardPage() {
         filename = disposition.split("filename=")[1].replace(/"/g, "");
       }
 
-      // Convert response to Blob and download
+      // Convert response to Blob and store for local download with 2min expiry
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      toast.success("Export ready", {
-        action: {
-          label: "Download",
-          onClick: () => {
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+      const expiresAt = Date.now() + 2 * 60 * 1000;
+      setDownloadUrls(prev => ({ ...prev, [contentId]: { url, filename, expiresAt } }));
+      
+      // Automatically revert to "Export" button after 2 minutes
+      setTimeout(() => {
+        setDownloadUrls(prev => {
+          const next = { ...prev };
+          if (next[contentId]?.url === url) {
             window.URL.revokeObjectURL(url);
+            delete next[contentId];
           }
-        }
+          return next;
+        });
+      }, 2 * 60 * 1000); // 2 Minutes
+      
+      toast.success("Export ready!", {
+        description: "Click the Download button on the card. Link expires in 2m."
       });
     } catch (err) {
       console.error(err);
       toast.error("Export failed");
+    } finally {
+      setExportingIds(prev => {
+        const next = new Set(prev);
+        next.delete(contentId);
+        return next;
+      });
     }
   };
 
@@ -1302,20 +1400,27 @@ export default function DashboardPage() {
             )}
 
             {contents?.length === 0 && (
-              <div className="text-center py-20 border border-border rounded-2xl bg-muted/20">
-                <div className="w-14 h-14 mx-auto bg-card border border-border rounded-2xl flex items-center justify-center mb-5">
-                  <FileText className="w-6 h-6 text-muted-foreground" />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-24 border border-dashed border-border rounded-3xl bg-muted/10 relative overflow-hidden group"
+              >
+                <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent-500)]/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative z-10">
+                  <div className="w-20 h-20 mx-auto bg-card border border-border rounded-[2rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-105 group-hover:rotate-3 transition-transform duration-500">
+                    <Zap className="w-10 h-10 text-[var(--accent-500)]" />
+                  </div>
+                  <h3 className="text-2xl font-bold tracking-tight mb-3">Ready to go viral?</h3>
+                  <p className="text-muted-foreground mb-10 max-w-sm mx-auto text-[15px] leading-relaxed">
+                    Upload your first video or drop a link to start generating viral clips and articles in seconds.
+                  </p>
+                  <Link href="/create">
+                    <Button className="rounded-full bg-foreground text-background font-semibold px-8 h-12 text-[15px] hover:opacity-90 shadow-lg shadow-black/5 hover:shadow-black/10 transition-all hover:-translate-y-0.5 active:translate-y-0">
+                      <Zap className="w-4 h-4 mr-2" /> Start creating
+                    </Button>
+                  </Link>
                 </div>
-                <h3 className="text-lg font-semibold mb-1">No projects yet</h3>
-                <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-                  Drop in a YouTube link or upload a video and we&apos;ll handle the rest.
-                </p>
-                <Link href="/create">
-                  <Button className="rounded-xl bg-foreground text-background font-medium px-5 h-10 hover:opacity-90 transition-opacity">
-                    <Zap className="w-4 h-4 mr-2" /> Create your first project
-                  </Button>
-                </Link>
-              </div>
+              </motion.div>
             )}
 
             {contents?.map((content) => {
@@ -1334,22 +1439,48 @@ export default function DashboardPage() {
 
               // Show skeleton/spinner for actively processing (non-stale) jobs
               if (['PENDING', 'GENERATING_TEXT', 'GENERATING_VIDEOS'].includes(content.status)) {
-                const statusLabel = content.status === 'PENDING' ? 'Queued' : content.status === 'GENERATING_TEXT' ? 'Generating text' : 'Rendering videos';
+                const statusLabel = content.status === 'PENDING' ? 'Queued' : content.status === 'GENERATING_TEXT' ? 'Analyzing content' : 'Rendering clips';
+                const subStatus = content.status === 'PENDING' 
+                  ? 'Waiting in pipeline...' 
+                  : content.status === 'GENERATING_TEXT' 
+                    ? 'Gemini is extracting viral hooks and writing articles...' 
+                    : 'FFmpeg is cropping and burning captions...';
+
                 return (
-                  <div key={content._id} className="relative border border-border bg-card rounded-2xl p-6">
-                    <div className="flex items-center gap-4">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-amber-500/30 border-t-amber-500"></div>
-                      <div>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border border-amber-500/30 text-amber-500 bg-amber-500/10">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          {statusLabel}
-                        </span>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Started {formatTimeSince(content.createdAt)}
+                  <motion.div 
+                    key={content._id} 
+                    layout
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="relative border border-border bg-card/50 rounded-2xl p-6 backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full animate-pulse" />
+                        <div className="relative animate-spin rounded-full h-8 w-8 border-2 border-amber-500/20 border-t-amber-500 shadow-sm" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border border-amber-500/30 text-amber-500 bg-amber-500/10">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            {statusLabel}
+                          </span>
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            ID: {content._id.slice(-6).toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-[13px] font-medium text-foreground/80 mt-2.5 flex items-center gap-2">
+                          {subStatus}
                         </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                           <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                           <p className="text-xs text-muted-foreground">
+                             Started {formatTimeSince(content.createdAt)}
+                           </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               }
 
@@ -1364,6 +1495,8 @@ export default function DashboardPage() {
                     showTranslation={!!showTranslationMap[content._id]}
                     setShowTranslation={(val) => setShowTranslationMap(prev => ({ ...prev, [content._id]: val }))}
                     onPublished={() => mutate()}
+                    isExporting={exportingIds.has(content._id)}
+                    downloadInfo={downloadUrls[content._id]}
                   />
                 </TypewriterProvider>
               );

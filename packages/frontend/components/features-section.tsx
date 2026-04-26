@@ -168,28 +168,30 @@ function EdgeHeader() {
     <div className="absolute inset-0 p-6 flex items-center justify-center">
       <div className="flex flex-col items-center">
         <div className="relative">
-          <div className="grid grid-cols-3 gap-2">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <motion.span
-                key={i}
-                className={cn(
-                  "h-2.5 w-2.5 rounded-sm",
-                  i === 4 ? "bg-brand" : "bg-foreground/15"
-                )}
-                initial={{ opacity: 0.3 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.04 }}
-              />
-            ))}
-          </div>
-          {/* Pulsing radius around the centre node */}
-          <motion.span
-            aria-hidden
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-3 w-3 rounded-sm border border-brand/50"
-            animate={{ scale: [1, 2.4, 1], opacity: [0.7, 0, 0.7] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeOut" }}
-          />
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <motion.span
+              key={i}
+              className={cn(
+                "h-2.5 w-2.5 rounded-sm relative",
+                i === 4 ? "bg-brand" : "bg-foreground/15"
+              )}
+              initial={{ opacity: 0.3 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: i * 0.04 }}
+            >
+              {i === 4 && (
+                <motion.span
+                  aria-hidden
+                  className="absolute inset-0 rounded-sm border border-brand/50"
+                  animate={{ scale: [1, 2.6, 1], opacity: [0.8, 0, 0.8] }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeOut" }}
+                />
+              )}
+            </motion.span>
+          ))}
+        </div>
         </div>
         <div className="mt-4 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           <span className="text-foreground">42</span>ms · global
