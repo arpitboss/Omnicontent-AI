@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
+
 import ReactPlayer from "react-player";
 import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
@@ -51,24 +51,21 @@ import {
   Clock,
   Download,
   ExternalLink,
-  FileText,
   Heart,
   Languages,
   Layers,
-  Maximize2,
+
   MessageCircle,
   MessageSquare,
   MoreHorizontal,
   Repeat,
   Send,
   Share,
-  Smartphone,
   ThumbsUp,
   Trash2,
-  X,
+
   XCircle,
   Zap,
-  Sparkles,
   Plus,
   PenTool,
   Eye,
@@ -189,98 +186,6 @@ function formatTimeSince(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-const BlogImageRenderer = ({ src }: { src: string }) => {
-  const match = src.match(/\[Image: (.*?)\]/);
-  const searchTerm = match ? match[1] : "abstract";
-  
-  // Clean redundant "Image:" prefix if present
-  let cleanedTerm = searchTerm;
-  if (cleanedTerm.toLowerCase().startsWith("image:")) {
-    cleanedTerm = cleanedTerm.slice(6).trim();
-  }
-  
-  const [activeKey, setActiveKey] = useState("");
-  const [activeModel, setActiveModel] = useState("flux");
-  const [isZoomed, setIsZoomed] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window !== "undefined") {
-      setActiveKey(localStorage.getItem("omnicontent_pollinations_key") || "");
-      setActiveModel(localStorage.getItem("omnicontent_pollinations_model") || "flux");
-    }
-  }, []);
-  
-  const defaultKey = process.env.NEXT_PUBLIC_POLLINATIONS_DEFAULT_KEY || "";
-  const defaultReferrer = process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || "omnicontent-ai.com";
-  const keyToUse = activeKey ? activeKey.trim() : defaultKey;
-
-  const imageUrl = keyToUse
-    ? `https://gen.pollinations.ai/image/${encodeURIComponent(cleanedTerm + " photorealistic, cinematic lighting, 4k, no text, high quality")}?width=1280&height=720&model=${encodeURIComponent(activeModel)}&key=${encodeURIComponent(keyToUse)}&referrer=${encodeURIComponent(defaultReferrer)}`
-    : `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanedTerm + " photorealistic, cinematic lighting, 4k, no text, high quality")}?width=1280&height=720&model=${encodeURIComponent(activeModel)}&referrer=${encodeURIComponent(defaultReferrer)}`;
-
-  const zoomImageUrl = imageUrl;
-
-  return (
-    <>
-      <figure className="my-14 group cursor-zoom-in" onClick={(e) => { e.stopPropagation(); setIsZoomed(true); }}>
-        <div className="overflow-hidden rounded-md shadow-sm relative">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imageUrl}
-            alt={searchTerm}
-            className="w-full h-auto hover:scale-105 transition-transform duration-700"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-            <Maximize2 className="text-white w-8 h-8 drop-shadow-md" />
-          </div>
-        </div>
-        <figcaption className="text-center text-sm text-neutral-500 mt-4 font-sans">
-          {searchTerm}
-        </figcaption>
-      </figure>
-
-      {mounted && typeof document !== "undefined" && createPortal(
-        <AnimatePresence>
-          {isZoomed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsZoomed(false);
-              }}
-              className="fixed inset-0 z-[999] bg-white/95 dark:bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
-            >
-              <motion.img
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                src={zoomImageUrl}
-                alt={searchTerm}
-                className="max-w-full max-h-[90vh] rounded-md shadow-2xl"
-              />
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsZoomed(false);
-                }}
-                className="absolute top-4 right-4 p-2 bg-black/10 dark:bg-white/10 rounded-full hover:bg-black/20 dark:hover:bg-white/20 transition-colors z-[1000]"
-              >
-                <X className="w-6 h-6 text-neutral-800 dark:text-neutral-200" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
-    </>
-  );
-};
-
 // ---------------- Animation Components ----------------
 
 // ------------- Subcomponents ---------------
@@ -357,7 +262,7 @@ const ContentDisplayCard = ({
   onPublished: () => void;
   isExporting: boolean;
   downloadInfo?: { url: string; filename: string; expiresAt: number };
-  onSaved?: (updatedContent?: Content) => void;
+  onSaved?: (updatedContent?: Record<string, unknown>) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -672,7 +577,7 @@ const ContentDisplayCard = ({
                       <TypewriterText
                         id={`${content._id}-article-${showTranslation ? 'translated' : 'original'}`}
                         components={{
-                          p: ({ children, className, style }) => (
+                          p: ({ children, style }) => (
                             <motion.p
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -684,7 +589,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.p>
                           ),
-                          h1: ({ children, className, style }) => (
+                          h1: ({ children, style }) => (
                             <motion.h1
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -696,7 +601,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.h1>
                           ),
-                          h2: ({ children, className, style }) => (
+                          h2: ({ children, style }) => (
                             <motion.h2
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -708,7 +613,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.h2>
                           ),
-                          h3: ({ children, className, style }) => (
+                          h3: ({ children, style }) => (
                             <motion.h3
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -720,7 +625,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.h3>
                           ),
-                          blockquote: ({ children, className, style }) => (
+                          blockquote: ({ children, style }) => (
                             <motion.blockquote
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -732,7 +637,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.blockquote>
                           ),
-                          ul: ({ children, className, style }) => (
+                          ul: ({ children, style }) => (
                             <motion.ul
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -744,7 +649,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.ul>
                           ),
-                          ol: ({ children, className, style }) => (
+                          ol: ({ children, style }) => (
                             <motion.ol
                               initial={{ opacity: 0, y: 20 }}
                               whileInView={{ opacity: 1, y: 0 }}
@@ -756,7 +661,7 @@ const ContentDisplayCard = ({
                               {children}
                             </motion.ol>
                           ),
-                          li: ({ node, ...props }) => <li {...props} className="pl-1" />,
+                          li: ({ ...props }) => <li {...props} className="pl-1" />,
                         }}
                         text={virtualBodyText}
                         imageMap={articleImageMap}
@@ -1288,7 +1193,7 @@ export default function DashboardPage() {
 
   const { getToken, userId } = useAuth();
   const [activeKey, setActiveKey] = useState("");
-  const [activeModel, setActiveModel] = useState("flux");
+  const [, setActiveModel] = useState("flux");
   const [authUrl, setAuthUrl] = useState("");
 
   useEffect(() => {
@@ -1803,11 +1708,14 @@ export default function DashboardPage() {
                     onPublished={() => mutate()}
                     isExporting={exportingIds.has(content._id)}
                     downloadInfo={downloadUrls[content._id]}
-                    onSaved={(updatedContent?: Content) => {
+                    onSaved={(updatedContent?: Record<string, unknown>) => {
                       if (updatedContent) {
                         // Optimistic SWR cache update — instantly patch the matching content in the local cache
                         mutate(
-                          (current) => current?.map(c => c._id === updatedContent._id ? { ...c, ...updatedContent } : c),
+                          (current) => {
+                            const updated = updatedContent as unknown as Content;
+                            return current?.map(c => c._id === updated._id ? { ...c, ...updated } : c);
+                          },
                           { revalidate: false }
                         );
                       } else {

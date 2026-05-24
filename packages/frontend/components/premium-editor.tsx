@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Award, 
-  Smile, 
   Bold, 
   Italic, 
   Heading2, 
@@ -19,13 +18,8 @@ import {
   FileText,
   Undo2,
   Redo2,
-  Wand2,
   Upload,
-  Eye,
-  PenTool,
   RefreshCw,
-  HelpCircle,
-  Key,
   Sliders,
   Copy
 } from "lucide-react";
@@ -41,7 +35,7 @@ interface PremiumEditorProps {
   initialHeroImagePrompt?: string;
   initialBody: string | string[];
   tokenProvider: () => Promise<string | null>;
-  onSaved?: (updatedContent: any) => void;
+  onSaved?: (updatedContent: Record<string, unknown>) => void;
 }
 
 // ----------------- Virtualization Helpers -----------------
@@ -159,7 +153,7 @@ export function PremiumEditor({
 
   const [savingState, setSavingState] = useState<"idle" | "drafting" | "saving" | "saved" | "error">("idle");
   const [activeTextareaIndex, setActiveTextareaIndex] = useState<number | null>(contentType === "twitter" ? 0 : -1);
-  const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
+  const [, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   
   // Custom interactive uploader
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(false);
@@ -357,7 +351,6 @@ export function PremiumEditor({
         setHeroImagePrompt(initialHeroImagePrompt);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialBody, initialTitle, initialHeroImagePrompt]);
 
   // Push history checkpoint
@@ -495,9 +488,10 @@ export function PremiumEditor({
       // 3. Trigger parent refresh/SWR mutation
       if (onSaved) onSaved(updatedContent);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to revert to original draft.";
       console.error("[Revert Error]:", err);
-      toast.error(err.message || "Failed to revert to original draft.");
+      toast.error(errorMessage);
     } finally {
       setIsReverting(false);
     }
@@ -538,7 +532,7 @@ export function PremiumEditor({
           ? devirtualizeMarkdown(latestBody, uploadedImagesMap)
           : latestBody;
 
-        const bodyPayload: any = {};
+        const bodyPayload: Record<string, unknown> = {};
         if (contentType === "article") {
           bodyPayload.generatedTitle = latestTitle;
           bodyPayload.generatedContent = deVirtualizedBody;

@@ -6,10 +6,7 @@ import {
   Linkedin,
   Twitter,
   Youtube,
-  Music2,
-  MessageCircle,
   FileText,
-  Share2,
 } from "lucide-react";
 import { InfiniteMovingCards } from "@/components/ui/infinite-moving-cards";
 

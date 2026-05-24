@@ -3,7 +3,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider, useTheme } from "@/context/theme-context";
 import { ClerkProvider } from "@clerk/nextjs";
-import { shadcn as clerkLight, dark, neobrutalism } from "@clerk/themes";
+import { shadcn as clerkLight, dark } from "@clerk/themes";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (

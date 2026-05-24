@@ -167,9 +167,9 @@ export const TypewriterText = ({ text, id, components, imageMap }: TypewriterTex
         .replace(/\n{3,}/g, '\n\n');
 
     // Custom img component with proper rendering for all image types
-    const imgComponent = ({ src, alt, ...props }: any) => {
-        // Guard: empty or whitespace-only src
-        if (!src || !src.trim()) return null;
+    const imgComponent = ({ src, alt }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+        // Guard: empty or non-string src
+        if (!src || typeof src !== 'string' || !src.trim()) return null;
 
         let finalSrc = src;
 
