@@ -3,7 +3,8 @@
 import { useAuth } from "@clerk/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import ReactPlayer from "react-player";
 import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
@@ -17,7 +18,9 @@ import { PublishHub } from "@/components/publish-hub";
 import { ArticleSkeleton, LinkedInSkeleton, TwitterSkeleton } from "@/components/skeletons";
 import { TranscriptDisplay } from "@/components/transcript-display";
 import { TypewriterText } from "@/components/typewriter-text";
+import { PremiumEditor } from "@/components/premium-editor";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -65,8 +68,13 @@ import {
   X,
   XCircle,
   Zap,
+  Sparkles,
+  Plus,
+  PenTool,
+  Eye,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Coins
 } from "lucide-react";
 
 // ---------------- Interfaces ----------------
@@ -110,6 +118,7 @@ interface Content {
   | "COMPLETE"
   | "FAILED";
   generatedTitle?: string;
+  heroImagePrompt?: string;
   summary?: string;
   generatedContent?: string;
   transcript: TranscriptSegment[];
@@ -180,17 +189,42 @@ function formatTimeSince(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-// ---------------- Components ----------------
-
 const BlogImageRenderer = ({ src }: { src: string }) => {
   const match = src.match(/\[Image: (.*?)\]/);
   const searchTerm = match ? match[1] : "abstract";
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(searchTerm + " photorealistic, cinematic lighting, 4k, no text, high quality")}?width=800&height=450&nologo=true`;
+  
+  // Clean redundant "Image:" prefix if present
+  let cleanedTerm = searchTerm;
+  if (cleanedTerm.toLowerCase().startsWith("image:")) {
+    cleanedTerm = cleanedTerm.slice(6).trim();
+  }
+  
+  const [activeKey, setActiveKey] = useState("");
+  const [activeModel, setActiveModel] = useState("flux");
   const [isZoomed, setIsZoomed] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setActiveKey(localStorage.getItem("omnicontent_pollinations_key") || "");
+      setActiveModel(localStorage.getItem("omnicontent_pollinations_model") || "flux");
+    }
+  }, []);
+  
+  const defaultKey = process.env.NEXT_PUBLIC_POLLINATIONS_DEFAULT_KEY || "";
+  const defaultReferrer = process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || "omnicontent-ai.com";
+  const keyToUse = activeKey ? activeKey.trim() : defaultKey;
+
+  const imageUrl = keyToUse
+    ? `https://gen.pollinations.ai/image/${encodeURIComponent(cleanedTerm + " photorealistic, cinematic lighting, 4k, no text, high quality")}?width=1280&height=720&model=${encodeURIComponent(activeModel)}&key=${encodeURIComponent(keyToUse)}&referrer=${encodeURIComponent(defaultReferrer)}`
+    : `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanedTerm + " photorealistic, cinematic lighting, 4k, no text, high quality")}?width=1280&height=720&model=${encodeURIComponent(activeModel)}&referrer=${encodeURIComponent(defaultReferrer)}`;
+
+  const zoomImageUrl = imageUrl;
 
   return (
     <>
-      <figure className="my-14 group cursor-zoom-in" onClick={() => setIsZoomed(true)}>
+      <figure className="my-14 group cursor-zoom-in" onClick={(e) => { e.stopPropagation(); setIsZoomed(true); }}>
         <div className="overflow-hidden rounded-md shadow-sm relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -199,7 +233,7 @@ const BlogImageRenderer = ({ src }: { src: string }) => {
             className="w-full h-auto hover:scale-105 transition-transform duration-700"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
             <Maximize2 className="text-white w-8 h-8 drop-shadow-md" />
           </div>
         </div>
@@ -208,50 +242,46 @@ const BlogImageRenderer = ({ src }: { src: string }) => {
         </figcaption>
       </figure>
 
-      <AnimatePresence>
-        {isZoomed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsZoomed(false);
-            }}
-            className="fixed inset-0 z-[100] bg-white/90 dark:bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
-          >
-            <motion.img
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              src={imageUrl}
-              alt={searchTerm}
-              className="max-w-full max-h-[90vh] rounded-md shadow-2xl"
-            />
-            <button className="absolute top-4 right-4 p-2 bg-black/10 dark:bg-white/10 rounded-full hover:bg-black/20 dark:hover:bg-white/20 transition-colors">
-              <X className="w-6 h-6 text-neutral-800 dark:text-neutral-200" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {mounted && typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isZoomed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomed(false);
+              }}
+              className="fixed inset-0 z-[999] bg-white/95 dark:bg-black/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+            >
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                src={zoomImageUrl}
+                alt={searchTerm}
+                className="max-w-full max-h-[90vh] rounded-md shadow-2xl"
+              />
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsZoomed(false);
+                }}
+                className="absolute top-4 right-4 p-2 bg-black/10 dark:bg-white/10 rounded-full hover:bg-black/20 dark:hover:bg-white/20 transition-colors z-[1000]"
+              >
+                <X className="w-6 h-6 text-neutral-800 dark:text-neutral-200" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 };
 
 // ---------------- Animation Components ----------------
-
-const ScrollReveal = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
-};
 
 // ------------- Subcomponents ---------------
 const DownloadTimer = ({ expiresAt }: { expiresAt: number }) => {
@@ -276,6 +306,33 @@ const DownloadTimer = ({ expiresAt }: { expiresAt: number }) => {
   );
 };
 
+// Virtualizes raw markdown containing base64 images into clean lightweight markdown for the preview typewriter
+const previewVirtualize = (markdown: string) => {
+  let cleanText = markdown;
+  const regex = /!\[.*?\]\((data:image\/.*?;base64,.*?)\)/g;
+
+  const imageMap: Record<string, string> = {};
+  const matches: Array<{ full: string; base64: string }> = [];
+  
+  regex.lastIndex = 0;
+  let match;
+  while ((match = regex.exec(markdown)) !== null) {
+    matches.push({
+      full: match[0],
+      base64: match[1]
+    });
+  }
+
+  matches.forEach((item, index) => {
+    const tokenKey = `dev_img_${index}`;
+    imageMap[tokenKey] = item.base64;
+    // We replace with standard markdown syntax pointing to the token key!
+    cleanText = cleanText.replace(item.full, `![Uploaded Image](${tokenKey})`);
+  });
+
+  return { cleanText, imageMap };
+};
+
 // ------------- ContentDisplayCard ---------------
 const ContentDisplayCard = ({
   content,
@@ -288,6 +345,7 @@ const ContentDisplayCard = ({
   onPublished,
   isExporting,
   downloadInfo,
+  onSaved,
 }: {
   content: Content;
   onDownload: (contentId: string, clip: Clip, aspectRatio: string) => void;
@@ -299,11 +357,32 @@ const ContentDisplayCard = ({
   onPublished: () => void;
   isExporting: boolean;
   downloadInfo?: { url: string; filename: string; expiresAt: number };
+  onSaved?: (updatedContent?: Content) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const { getToken } = useAuth();
   const cardRef = useRef<HTMLDivElement>(null);
   const { startAnimation, showImmediately } = useTypewriterManager();
   const currentTranslation = translationCache[content._id];
+
+  const [activeKey, setActiveKey] = useState("");
+  const [activeModel, setActiveModel] = useState("flux");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setActiveKey(localStorage.getItem("omnicontent_pollinations_key") || "");
+      setActiveModel(localStorage.getItem("omnicontent_pollinations_model") || "flux");
+    }
+  }, []);
+
+  const rawArticleBody = showTranslation && currentTranslation?.blog
+    ? currentTranslation.blog
+    : content.generatedContent || "";
+
+  const { cleanText: virtualBodyText, imageMap: articleImageMap } = useMemo(() => {
+    return previewVirtualize(rawArticleBody);
+  }, [rawArticleBody]);
 
   useEffect(() => {
     if (content && content.status !== 'PENDING' && content.status !== 'GENERATING_TEXT') {
@@ -318,7 +397,7 @@ const ContentDisplayCard = ({
       };
 
       animateOrShow(`${content._id}-summary-${showTranslation ? 'translated' : 'original'}`, showTranslation && currentTranslation?.summary ? currentTranslation.summary : content.summary || "");
-      animateOrShow(`${content._id}-article-${showTranslation ? 'translated' : 'original'}`, showTranslation && currentTranslation?.blog ? currentTranslation.blog : content.generatedContent || "");
+      animateOrShow(`${content._id}-article-${showTranslation ? 'translated' : 'original'}`, virtualBodyText);
       animateOrShow(`${content._id}-linkedin-${showTranslation ? 'translated' : 'original'}`, showTranslation && currentTranslation?.linkedin ? currentTranslation.linkedin : content.linkedinPost || "");
 
       content.twitterThread?.forEach((tweet, index) => {
@@ -329,7 +408,7 @@ const ContentDisplayCard = ({
         sessionStorage.setItem(`typewriter_played_${content._id}`, 'true');
       }
     }
-  }, [content, startAnimation, showImmediately, showTranslation, currentTranslation]);
+  }, [content, startAnimation, showImmediately, showTranslation, currentTranslation, virtualBodyText]);
 
   let sourceLabel = content.sourceUrl;
   try {
@@ -429,6 +508,25 @@ const ContentDisplayCard = ({
             {currentTranslation ? "Change" : "Translate"}
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "rounded-lg text-xs h-9 transition-all duration-300 font-medium select-none",
+              isEditMode
+                ? "bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-[var(--accent-500)]/20 border-amber-500/40 text-foreground shadow-sm shadow-amber-500/5 scale-103"
+                : "border-border hover:border-foreground/30 hover:bg-accent dark:hover:bg-white/[0.03]"
+            )}
+            onClick={() => setIsEditMode(!isEditMode)}
+          >
+            {isEditMode ? (
+              <Eye className="mr-2 h-3.5 w-3.5 text-muted-foreground transition-transform duration-300" />
+            ) : (
+              <PenTool className="mr-2 h-3.5 w-3.5 text-muted-foreground transition-transform duration-300" />
+            )}
+            {isEditMode ? "View Preview" : "Edit Content"}
+          </Button>
+
           {content.status === 'COMPLETE' && (
             <PublishHub content={content} onPublished={onPublished} />
           )}
@@ -455,14 +553,24 @@ const ContentDisplayCard = ({
               <CopyButton textToCopy={content.summary || ''} />
             </div>
             <div className="text-sm leading-relaxed text-foreground/80">
-              <TypewriterText
-                id={`${content._id}-summary-${showTranslation ? 'translated' : 'original'}`}
-                text={
-                  showTranslation && currentTranslation?.summary
-                    ? currentTranslation.summary
-                    : content.summary || ""
-                }
-              />
+              {isEditMode ? (
+                <PremiumEditor
+                  contentId={content._id}
+                  contentType="summary"
+                  initialBody={content.summary || ""}
+                  tokenProvider={getToken}
+                  onSaved={onSaved}
+                />
+              ) : (
+                <TypewriterText
+                  id={`${content._id}-summary-${showTranslation ? 'translated' : 'original'}`}
+                  text={
+                    showTranslation && currentTranslation?.summary
+                      ? currentTranslation.summary
+                      : content.summary || ""
+                  }
+                />
+              )}
             </div>
           </div>
         </div >
@@ -494,6 +602,18 @@ const ContentDisplayCard = ({
             >
               {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                 <ArticleSkeleton />
+              ) : isEditMode ? (
+                <div className="py-10 px-6">
+                  <PremiumEditor
+                    contentId={content._id}
+                    contentType="article"
+                    initialTitle={content.generatedTitle || "Untitled Draft"}
+                    initialHeroImagePrompt={content.heroImagePrompt || ""}
+                    initialBody={content.generatedContent || ""}
+                    tokenProvider={getToken}
+                    onSaved={onSaved}
+                  />
+                </div>
               ) : (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -505,7 +625,21 @@ const ContentDisplayCard = ({
                   <div className="mb-8 relative aspect-video w-full overflow-hidden rounded-md shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`https://image.pollinations.ai/prompt/${encodeURIComponent((content.generatedTitle || "abstract") + " cinematic, photorealistic, 4k, dramatic lighting, no text")}?width=1280&height=720&nologo=true`}
+                      key={`hero-${content.heroImagePrompt || content.generatedTitle || content._id}`}
+                      src={(() => {
+                        const heroPrompt = content.heroImagePrompt
+                          ? content.heroImagePrompt
+                          : `${content.generatedTitle || "abstract"} conceptual illustration, minimal design, cinematic key visual, photorealistic, no text, clean background, 3d render`;
+                        const defaultKey = process.env.NEXT_PUBLIC_POLLINATIONS_DEFAULT_KEY || "";
+                        const defaultReferrer = process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || "omnicontent-ai.com";
+                        const keyToUse = activeKey ? activeKey.trim() : defaultKey;
+                        // Simple hash for cache-busting seed — changes when prompt changes
+                        const seed = Array.from(heroPrompt).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+                        return keyToUse
+                          ? `https://gen.pollinations.ai/image/${encodeURIComponent(heroPrompt)}?width=1280&height=720&model=${encodeURIComponent(activeModel || "flux")}&key=${encodeURIComponent(keyToUse)}&referrer=${encodeURIComponent(defaultReferrer)}&seed=${seed}`
+                          : `https://image.pollinations.ai/prompt/${encodeURIComponent(heroPrompt)}?width=1280&height=720&model=${encodeURIComponent(activeModel || "flux")}&referrer=${encodeURIComponent(defaultReferrer)}&seed=${seed}`;
+                      })()}
                       alt="Article Hero"
                       className="object-cover w-full h-full hover:scale-105 transition-transform duration-700"
                     />
@@ -538,48 +672,94 @@ const ContentDisplayCard = ({
                       <TypewriterText
                         id={`${content._id}-article-${showTranslation ? 'translated' : 'original'}`}
                         components={{
-                          p: ({ ...props }) => (
-                            <ScrollReveal>
-                              <p {...props} className="mb-6 font-serif text-[19px] leading-[30px] text-foreground/85 antialiased" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
-                            </ScrollReveal>
+                          p: ({ children, className, style }) => (
+                            <motion.p
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="mb-6 font-serif text-[19px] leading-[30px] text-foreground/85 antialiased"
+                              style={{ ...style, fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }}
+                            >
+                              {children}
+                            </motion.p>
                           ),
-                          h1: ({ ...props }) => (
-                            <ScrollReveal>
-                              <h1 {...props} className="font-sans font-bold text-2xl md:text-3xl mb-5 mt-10 text-foreground tracking-tight leading-tight" />
-                            </ScrollReveal>
+                          h1: ({ children, className, style }) => (
+                            <motion.h1
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="font-sans font-bold text-2xl md:text-3xl mb-5 mt-10 text-foreground tracking-tight leading-tight"
+                              style={style}
+                            >
+                              {children}
+                            </motion.h1>
                           ),
-                          h2: ({ ...props }) => (
-                            <ScrollReveal>
-                              <h2 {...props} className="font-sans font-bold text-xl md:text-2xl mb-4 mt-9 text-foreground tracking-tight leading-tight" />
-                            </ScrollReveal>
+                          h2: ({ children, className, style }) => (
+                            <motion.h2
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="font-sans font-bold text-xl md:text-2xl mb-4 mt-9 text-foreground tracking-tight leading-tight"
+                              style={style}
+                            >
+                              {children}
+                            </motion.h2>
                           ),
-                          h3: ({ ...props }) => (
-                            <ScrollReveal>
-                              <h3 {...props} className="font-sans font-bold text-lg md:text-xl mb-3 mt-7 text-foreground tracking-tight leading-tight" />
-                            </ScrollReveal>
+                          h3: ({ children, className, style }) => (
+                            <motion.h3
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="font-sans font-bold text-lg md:text-xl mb-3 mt-7 text-foreground tracking-tight leading-tight"
+                              style={style}
+                            >
+                              {children}
+                            </motion.h3>
                           ),
-                          blockquote: ({ ...props }) => (
-                            <ScrollReveal>
-                              <blockquote {...props} className="border-l-[3px] border-foreground pl-5 italic text-[20px] leading-relaxed text-foreground/80 my-8 font-serif" style={{ fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }} />
-                            </ScrollReveal>
+                          blockquote: ({ children, className, style }) => (
+                            <motion.blockquote
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="border-l-[3px] border-foreground pl-5 italic text-[20px] leading-relaxed text-foreground/80 my-8 font-serif"
+                              style={{ ...style, fontFamily: 'charter, Georgia, Cambria, "Times New Roman", Times, serif' }}
+                            >
+                              {children}
+                            </motion.blockquote>
                           ),
-                          ul: ({ ...props }) => (
-                            <ScrollReveal>
-                              <ul {...props} className="list-disc pl-6 mb-6 space-y-2 font-serif text-[19px] leading-[30px] text-foreground/85" />
-                            </ScrollReveal>
+                          ul: ({ children, className, style }) => (
+                            <motion.ul
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="list-disc pl-6 mb-6 space-y-2 font-serif text-[19px] leading-[30px] text-foreground/85"
+                              style={style}
+                            >
+                              {children}
+                            </motion.ul>
                           ),
-                          ol: ({ ...props }) => (
-                            <ScrollReveal>
-                              <ol {...props} className="list-decimal pl-6 mb-6 space-y-2 font-serif text-[19px] leading-[30px] text-foreground/85" />
-                            </ScrollReveal>
+                          ol: ({ children, className, style }) => (
+                            <motion.ol
+                              initial={{ opacity: 0, y: 20 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true, margin: "-50px" }}
+                              transition={{ duration: 0.5, ease: "easeOut" }}
+                              className="list-decimal pl-6 mb-6 space-y-2 font-serif text-[19px] leading-[30px] text-foreground/85"
+                              style={style}
+                            >
+                              {children}
+                            </motion.ol>
                           ),
-                          li: ({ ...props }) => <li {...props} className="pl-1" />,
+                          li: ({ node, ...props }) => <li {...props} className="pl-1" />,
                         }}
-                        text={
-                          showTranslation && currentTranslation?.blog
-                            ? currentTranslation.blog
-                            : content.generatedContent || ""
-                        }
+                        text={virtualBodyText}
+                        imageMap={articleImageMap}
                       />
                     </article>
 
@@ -642,6 +822,16 @@ const ContentDisplayCard = ({
                 >
                   {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                     <LinkedInSkeleton />
+                  ) : isEditMode ? (
+                    <div className="py-8">
+                      <PremiumEditor
+                        contentId={content._id}
+                        contentType="linkedin"
+                        initialBody={content.linkedinPost || ""}
+                        tokenProvider={getToken}
+                        onSaved={onSaved}
+                      />
+                    </div>
                   ) : (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.98 }}
@@ -715,6 +905,16 @@ const ContentDisplayCard = ({
                 <TabsContent value="twitter" className="space-y-0 max-w-[600px] mx-auto py-8">
                   {content.status === 'GENERATING_TEXT' || content.status === 'PENDING' ? (
                     <TwitterSkeleton />
+                  ) : isEditMode ? (
+                    <div className="py-8">
+                      <PremiumEditor
+                        contentId={content._id}
+                        contentType="twitter"
+                        initialBody={content.twitterThread || []}
+                        tokenProvider={getToken}
+                        onSaved={onSaved}
+                      />
+                    </div>
                   ) : (
                     <>
                       <div className="flex justify-end mb-4 px-4">
@@ -1087,6 +1287,34 @@ export default function DashboardPage() {
   // Plan unused, removing to fix lint
 
   const { getToken, userId } = useAuth();
+  const [activeKey, setActiveKey] = useState("");
+  const [activeModel, setActiveModel] = useState("flux");
+  const [authUrl, setAuthUrl] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // Listen and automatically capture API Keys passed in the URL fragment (Callback redirect)
+      const hash = window.location.hash;
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.substring(1)); // Strip '#'
+        const keyFromHash = hashParams.get("key") || hashParams.get("token") || hashParams.get("access_token") || hashParams.get("code");
+        if (keyFromHash) {
+          localStorage.setItem("omnicontent_pollinations_key", keyFromHash.trim());
+          toast.success("Connected to Pollinations.ai Wallet!");
+          // Clean the address bar hash
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      }
+
+      setActiveKey(localStorage.getItem("omnicontent_pollinations_key") || "");
+      setActiveModel(localStorage.getItem("omnicontent_pollinations_model") || "flux");
+
+      const clientId = process.env.NEXT_PUBLIC_POLLINATIONS_DEFAULT_KEY || "";
+      const redirectUri = window.location.origin + "/dashboard";
+      setAuthUrl(`https://enter.pollinations.ai/authorize?redirect_uri=${encodeURIComponent(redirectUri)}&client_id=${encodeURIComponent(clientId)}`);
+    }
+  }, []);
+
   const { data: contents, error, isLoading, mutate } = useSWR<Content[]>(
     `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content`,
     (url) => fetcher(url, getToken),
@@ -1373,11 +1601,60 @@ export default function DashboardPage() {
                 Every video you&apos;ve atomized — articles, social posts, clips and transcripts, all in one place.
               </p>
             </div>
-            <Link href="/create">
-              <Button className="rounded-md bg-foreground text-background font-medium px-5 h-10 text-[13.5px] hover:opacity-92 transition-opacity active:translate-y-px">
-                <Zap className="w-4 h-4 mr-2" /> New project
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2.5">
+              {/* Pollen Wallet Tooltip & Button Container */}
+              <div className="relative group/pollen">
+                {/* Custom Elegant Tooltip Popup */}
+                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-80 p-4 rounded-xl bg-popover border border-border shadow-xl opacity-0 group-hover/pollen:opacity-100 transition-all duration-300 pointer-events-none z-50 leading-relaxed font-sans translate-y-2 group-hover/pollen:translate-y-0">
+                  <div className="flex items-center gap-2 mb-1.5 text-amber-500 dark:text-amber-400 font-semibold text-xs uppercase tracking-wider">
+                    <Coins className="w-4 h-4" />
+                    What is Pollen?
+                  </div>
+                  <p className="text-[12px] text-muted-foreground leading-normal font-normal">
+                    Pollen represents API credits on Pollinations.ai. Connecting your wallet lets the app run visual generations using your personal credits, keeping service self-sustaining.
+                  </p>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 w-3 h-3 bg-popover border-r border-b border-border rotate-45 -translate-y-1.5" />
+                </div>
+
+                {/* Pollen Wallet Button */}
+                {activeKey ? (
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      localStorage.removeItem("omnicontent_pollinations_key");
+                      setActiveKey("");
+                      toast.success("Disconnected Pollinations Wallet");
+                    }}
+                    className="w-[155px] justify-center rounded-md border-green-500/30 bg-green-500/5 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-500 text-green-600 dark:text-green-400 font-medium h-10 text-[13.5px] transition-all flex items-center gap-2 group/wallet cursor-pointer"
+                  >
+                    <span className="relative flex h-2 w-2 group-hover/wallet:hidden">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <span className="hidden group-hover/wallet:inline">Disconnect</span>
+                    <span className="group-hover/wallet:hidden">Pollen Connected</span>
+                  </Button>
+                ) : (
+                  authUrl && (
+                    <a href={authUrl} className="block">
+                      <Button 
+                        variant="outline"
+                        className="w-[155px] justify-center rounded-md border-border bg-card hover:bg-accent text-foreground font-medium h-10 text-[13.5px] transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <Coins className="w-4 h-4 text-amber-500" />
+                        Connect Pollen
+                      </Button>
+                    </a>
+                  )
+                )}
+              </div>
+
+              <Link href="/create">
+                <Button className="rounded-md bg-foreground text-background font-medium px-5 h-10 text-[13.5px] hover:opacity-92 transition-opacity active:translate-y-px">
+                  <Plus className="w-4 h-4 mr-2" /> New project
+                </Button>
+              </Link>
+            </div>
           </motion.header>
 
           {/* Stat cards */}
@@ -1526,6 +1803,17 @@ export default function DashboardPage() {
                     onPublished={() => mutate()}
                     isExporting={exportingIds.has(content._id)}
                     downloadInfo={downloadUrls[content._id]}
+                    onSaved={(updatedContent?: Content) => {
+                      if (updatedContent) {
+                        // Optimistic SWR cache update — instantly patch the matching content in the local cache
+                        mutate(
+                          (current) => current?.map(c => c._id === updatedContent._id ? { ...c, ...updatedContent } : c),
+                          { revalidate: false }
+                        );
+                      } else {
+                        mutate();
+                      }
+                    }}
                   />
                 </TypewriterProvider>
               );

@@ -275,15 +275,22 @@ const startWorker = async () => {
                         };
                     });
 
+                    const generatedTitle = analysis.blogPostMarkdown.split('\n')[0].replace(/#+\s*/, '').trim();
+
                     await Content.findByIdAndUpdate(contentId, {
                         status: 'GENERATING_VIDEOS',
                         localSourcePath: finalSourcePath,
                         summary: analysis.summary,
-                        generatedTitle: analysis.blogPostMarkdown.split('\n')[0].replace(/#+\s*/, '').trim(),
+                        originalSummary: analysis.summary,
+                        generatedTitle: generatedTitle,
+                        originalTitle: generatedTitle,
                         generatedContent: analysis.blogPostMarkdown,
+                        originalGeneratedContent: analysis.blogPostMarkdown,
                         transcript: analysis.transcript,
                         linkedinPost: analysis.linkedinPost,
+                        originalLinkedinPost: analysis.linkedinPost,
                         twitterThread: analysis.twitterThread,
+                        originalTwitterThread: analysis.twitterThread,
                         clips: clipMetadata,
                     });
 

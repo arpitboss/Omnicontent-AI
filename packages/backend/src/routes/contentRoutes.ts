@@ -237,7 +237,7 @@ router.post('/translate', requireAuth(), async (req, res) => {
             throw new Error("GEMINI_API_KEY is not set in environment variables.");
         }
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }, { apiVersion: "v1" });
 
         const prompt = `Translate the following text into ${targetLanguage}. Return only the translated text, with no additional commentary or explanations:\n\n${text}`;
         const result = await model.generateContent(prompt);
@@ -365,6 +365,211 @@ router.get('/:contentId/:videoId', requireAuth(), async (req: express.Request, r
         }
     } catch (error) {
         console.error('Failed to fetch content:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// --- Helper to extract JSON from raw text response ---
+function extractFirstJsonObject(text: string): string {
+    const match = text.match(/{[\s\S]*}/);
+    if (!match) throw new Error("No JSON object found in response.");
+    return match[0];
+}
+
+// --- Helper to regenerate content from video transcript using Gemini ---
+async function regenerateContentFromTranscript(transcriptSegments: any[]): Promise<{
+    summary: string;
+    generatedTitle: string;
+    generatedContent: string;
+    linkedinPost: string;
+    twitterThread: string[];
+}> {
+    const apiKey = process.env.GEMINI_API_KEY || "";
+    if (!apiKey) {
+        throw new Error("GEMINI_API_KEY is not configured in backend environment variables.");
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // Use rapid gemini-2.5-flash on the standard v1 endpoint
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash"
+    }, { apiVersion: "v1" });
+
+    const transcriptText = transcriptSegments.map(t => `${t.timestamp}: ${t.text}`).join("\n");
+
+    const prompt = `
+    You are an expert, A-list content strategist. Based on the following video transcript segments, generate high-quality marketing assets:
+    1. "summary": A concise one-paragraph summary.
+    2. "generatedTitle": A catchy, SEO-optimized title for a blog article.
+    3. "generatedContent": A beautifully structured blog post in Markdown format. Use H2 (##) headings, bullet points, and place visual suggestions exactly in this format: "[Image: Stock photo description suitable for stock search]".
+    4. "linkedinPost": A professional post with emojis and hashtags.
+    5. "twitterThread": A viral 3-5 tweet thread (array of strings, each tweet under 280 characters, numbered like 1/, 2/).
+
+    Transcript text:
+    ${transcriptText}
+
+    Output must be a single, valid JSON object matching this schema. Do not include markdown wraps:
+    {
+      "summary": "...",
+      "generatedTitle": "...",
+      "generatedContent": "...",
+      "linkedinPost": "...",
+      "twitterThread": ["tweet 1", "tweet 2"]
+    }
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    const cleanJson = extractFirstJsonObject(responseText);
+    const parsed = JSON.parse(cleanJson);
+
+    return {
+        summary: parsed.summary || "",
+        generatedTitle: parsed.generatedTitle || "",
+        generatedContent: parsed.generatedContent || "",
+        linkedinPost: parsed.linkedinPost || "",
+        twitterThread: parsed.twitterThread || []
+    };
+}
+
+// --- Revert content to original draft / Backup restore ---
+router.post('/:contentId/revert', requireAuth(), async (req: express.Request, res: express.Response) => {
+    try {
+        const { contentId } = req.params;
+        const userId = req.auth?.userId;
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const content = await Content.findOne({ _id: contentId, userId });
+        if (!content) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+
+        // 1. If originalGeneratedContent backup is present in DB, restore active fields immediately
+        if (content.get('originalGeneratedContent')) {
+            content.generatedTitle = content.get('originalTitle') || content.generatedTitle;
+            content.summary = content.get('originalSummary') || content.summary;
+            content.generatedContent = content.get('originalGeneratedContent') || content.generatedContent;
+            content.linkedinPost = content.get('originalLinkedinPost') || content.linkedinPost;
+            content.twitterThread = content.get('originalTwitterThread') || content.twitterThread;
+
+            await content.save();
+            console.log(`[🔄] User ${userId} reverted content ${contentId} from database backups`);
+            return res.status(200).json(content);
+        }
+
+        // 2. Immediate Recovery Fallback: If no backups exist yet, dynamically regenerate from transcript using Gemini
+        if (!content.transcript || content.transcript.length === 0) {
+            return res.status(400).json({ message: 'Cannot revert or restore: Video transcript is missing from this project.' });
+        }
+
+        console.log(`[🔄] No DB backups found for content ${contentId}. Triggering dynamic Gemini transcript recovery...`);
+        const restored = await regenerateContentFromTranscript(content.transcript);
+
+        content.generatedTitle = restored.generatedTitle;
+        content.originalTitle = restored.generatedTitle;
+        content.summary = restored.summary;
+        content.originalSummary = restored.summary;
+        content.generatedContent = restored.generatedContent;
+        content.originalGeneratedContent = restored.generatedContent;
+        content.linkedinPost = restored.linkedinPost;
+        content.originalLinkedinPost = restored.linkedinPost;
+        content.twitterThread = restored.twitterThread;
+        content.originalTwitterThread = restored.twitterThread;
+
+        await content.save();
+        console.log(`[🔄] User ${userId} recovered content ${contentId} via transcript-based Gemini regeneration`);
+        res.status(200).json(content);
+    } catch (error: any) {
+        console.error('Failed to revert content:', error);
+        res.status(500).json({ message: `Internal server error: ${error.message}` });
+    }
+});
+
+// --- Explicitly force regeneration of all texts from the video transcript ---
+router.post('/:contentId/regenerate', requireAuth(), async (req: express.Request, res: express.Response) => {
+    try {
+        const { contentId } = req.params;
+        const userId = req.auth?.userId;
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const content = await Content.findOne({ _id: contentId, userId });
+        if (!content) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+
+        if (!content.transcript || content.transcript.length === 0) {
+            return res.status(400).json({ message: 'Cannot regenerate: Transcript is missing.' });
+        }
+
+        console.log(`[🔄] Forcing complete Gemini regeneration for content ${contentId}...`);
+        const regenerated = await regenerateContentFromTranscript(content.transcript);
+
+        content.generatedTitle = regenerated.generatedTitle;
+        content.originalTitle = regenerated.generatedTitle;
+        content.summary = regenerated.summary;
+        content.originalSummary = regenerated.summary;
+        content.generatedContent = regenerated.generatedContent;
+        content.originalGeneratedContent = regenerated.generatedContent;
+        content.linkedinPost = regenerated.linkedinPost;
+        content.originalLinkedinPost = regenerated.linkedinPost;
+        content.twitterThread = regenerated.twitterThread;
+        content.originalTwitterThread = regenerated.twitterThread;
+
+        await content.save();
+        console.log(`[🔄] User ${userId} regenerated content ${contentId} from transcript successfully.`);
+        res.status(200).json(content);
+    } catch (error: any) {
+        console.error('Failed to force regenerate content:', error);
+        res.status(500).json({ message: `Internal server error: ${error.message}` });
+    }
+});
+
+// --- Update generated content (Premium features / Edit on the spot) ---
+router.put('/:contentId', requireAuth(), async (req: express.Request, res: express.Response) => {
+    try {
+        const { contentId } = req.params;
+        const userId = req.auth?.userId;
+        const { generatedTitle, generatedContent, linkedinPost, twitterThread, summary, heroImagePrompt } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const content = await Content.findOne({ _id: contentId, userId });
+        if (!content) {
+            return res.status(404).json({ message: 'Content not found' });
+        }
+
+        // Protection against accidental blank clears (like auto-saving after mistakenly selecting all & deleting)
+        const isTryingToClearContent = 
+            (generatedContent !== undefined && generatedContent.trim() === "") ||
+            (summary !== undefined && summary.trim() === "") ||
+            (linkedinPost !== undefined && linkedinPost.trim() === "") ||
+            (twitterThread !== undefined && Array.isArray(twitterThread) && twitterThread.length === 0);
+
+        if (isTryingToClearContent && req.query.force !== 'true') {
+            return res.status(400).json({ 
+                message: 'Draft update blocked: Accidental clear protection active. Empty drafts cannot be auto-saved. If you genuinely want to clear it, use ?force=true in the API query.' 
+            });
+        }
+
+        if (generatedTitle !== undefined) content.generatedTitle = generatedTitle;
+        if (generatedContent !== undefined) content.generatedContent = generatedContent;
+        if (linkedinPost !== undefined) content.linkedinPost = linkedinPost;
+        if (twitterThread !== undefined) content.twitterThread = twitterThread;
+        if (summary !== undefined) content.summary = summary;
+        if (heroImagePrompt !== undefined) content.heroImagePrompt = heroImagePrompt;
+
+        await content.save();
+        console.log(`[✏️] User ${userId} updated content ${contentId}`);
+        res.status(200).json(content);
+    } catch (error) {
+        console.error('Failed to update content:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });

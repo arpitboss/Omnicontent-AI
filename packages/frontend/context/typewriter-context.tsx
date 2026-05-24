@@ -43,7 +43,7 @@ class TypewriterStore {
     };
 
     showImmediately = (id: string, text: string) => {
-        if (this.animations[id]?.isDone) return;
+        if (this.animations[id]?.isDone && this.animations[id]?.displayText === text) return;
         this.animations[id] = { displayText: text, isDone: true };
         this.emitChange();
     };
