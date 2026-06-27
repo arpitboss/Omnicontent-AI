@@ -147,7 +147,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
             - An engaging introduction that hooks the reader.
             - Well-structured sections with Markdown headings (##) and subheadings (###).
             - **Placeholders for visuals**, formatted exactly like this: "[Image: A vibrant, abstract image representing creative ideas]" or "[Image: A close-up of a person typing on a laptop]". Use descriptive terms suitable for a stock photo search.
-        3.  "transcript": A structured transcript as an array of objects. Each object must have a "timestamp" (string, e.g., "01:23.540") and the corresponding "text" (string).
+        3.  "transcript": A structured transcript as an array of objects. CRITICAL: Combine multiple sentences into a single large text block (approx 30-60 seconds of speech) per object to keep the array small and avoid exceeding token limits. Each object must have a "timestamp" (string, e.g., "01:23") and the corresponding "text" (string).
         4.  "linkedinPost": A professional post for LinkedIn. It must:
             - Start with a strong, relatable hook (e.g., "Ever struggle with...?").
             - Use bullet points with professional emojis (e.g., ✅, 💡, 🚀) to list 3-4 key insights.
@@ -202,6 +202,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
 
         try {
             const parsedResult: AtomizationResult = JSON.parse(cleanJsonString);
+            parsedResult.viralMoments = parsedResult.viralMoments || [];
             console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
             return parsedResult;
         } catch (error) {
@@ -213,6 +214,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
 
                 console.log('[✅] AI repair successful. Parsing repaired JSON.');
                 const parsedResult: AtomizationResult = JSON.parse(cleanRepairedJson);
+                parsedResult.viralMoments = parsedResult.viralMoments || [];
                 console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
                 return parsedResult;
             } catch (repairError) {

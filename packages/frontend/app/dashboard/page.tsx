@@ -1646,9 +1646,7 @@ export default function DashboardPage() {
             )}
 
             {contents?.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+              <div
                 className="text-center py-24 border border-dashed border-border rounded-3xl bg-muted/10 relative overflow-hidden group"
               >
                 <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent-500)]/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -1661,12 +1659,12 @@ export default function DashboardPage() {
                     Upload your first video or drop a link to start generating viral clips and articles in seconds.
                   </p>
                   <Link href="/create">
-                    <Button className="rounded-full bg-foreground text-background font-semibold px-8 h-12 text-[15px] hover:opacity-90 shadow-lg shadow-black/5 hover:shadow-black/10 transition-all hover:-translate-y-0.5 active:translate-y-0">
+                    <Button className="rounded-full bg-foreground text-background font-semibold px-8 h-12 text-[15px] hover:opacity-90 shadow-lg shadow-black/5 transition-colors">
                       <Layers className="w-4 h-4 mr-2" /> Start creating
                     </Button>
                   </Link>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {contents?.map((content) => {

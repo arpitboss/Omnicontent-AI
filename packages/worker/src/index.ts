@@ -278,7 +278,7 @@ const startWorker = async () => {
                     const generatedTitle = analysis.blogPostMarkdown.split('\n')[0].replace(/#+\s*/, '').trim();
 
                     await Content.findByIdAndUpdate(contentId, {
-                        status: 'GENERATING_VIDEOS',
+                        status: clipMetadata.length > 0 ? 'GENERATING_VIDEOS' : 'READY',
                         localSourcePath: finalSourcePath,
                         summary: analysis.summary,
                         originalSummary: analysis.summary,
@@ -371,8 +371,24 @@ const startWorker = async () => {
                 } catch (err) {
                     await Content.updateOne({ "clips._id": clipId }, { $set: { "clips.$.status": 'FAILED' } });
                     console.error(`Failed to process video for clip ${clipId}:`, err);
+                } finally {
                     // ACK even on failure so we don't get stuck in an infinite retry loop
                     channel.ack(msg);
+
+                    // Check if all clips are done (including failures) to update parent status
+                    const updatedContent = await Content.findById(contentId);
+                    const allClipsProcessed = updatedContent?.clips.every(c => c.status === 'READY' || c.status === 'FAILED');
+
+                    if (allClipsProcessed) {
+                        const allFailed = updatedContent?.clips.every(c => c.status === 'FAILED');
+                        if (allFailed) {
+                            await Content.findByIdAndUpdate(contentId, { status: 'FAILED', errorMessage: 'All video clips failed to generate.' });
+                            console.log(`[❌] All clips for content ${contentId} failed. Job marked as FAILED.`);
+                        } else {
+                            await Content.findByIdAndUpdate(contentId, { status: 'COMPLETE' });
+                            console.log(`[🎉] All clips for content ${contentId} are processed. Job is COMPLETE.`);
+                        }
+                    }
                 }
             }
         });
