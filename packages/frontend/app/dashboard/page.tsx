@@ -68,7 +68,7 @@ import {
   Trash2,
 
   XCircle,
-  Zap,
+  Flame,
   Plus,
   PenTool,
   Eye,
@@ -581,7 +581,7 @@ const ContentDisplayCard = ({
                   {/* Author/Meta */}
                   <div className="flex items-center space-x-4 mb-8 border-b border-border pb-6">
                     <div className="w-10 h-10 rounded-full bg-[var(--accent-500)]/15 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-[var(--accent-500)]" />
+                      <Layers className="w-5 h-5 text-[var(--accent-500)]" />
                     </div>
                     <div>
                       <div className="font-sans font-medium text-foreground">OmniContent AI</div>
@@ -1008,7 +1008,7 @@ const ContentDisplayCard = ({
                         {/* Viral Potential Badge */}
                         <div className="absolute top-3 left-3 z-20">
                           <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 shadow-xl">
-                            <Zap className="w-3 h-3 text-brand fill-brand" />
+                            <Flame className="w-3 h-3 text-brand fill-brand" />
                             <span className="text-[10px] font-bold text-white uppercase tracking-wider">
                               {Math.floor(85 + (clip._id.charCodeAt(clip._id.length - 1) % 15))}% Viral
                             </span>
@@ -1653,8 +1653,8 @@ export default function DashboardPage() {
               >
                 <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent-500)]/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative z-10">
-                  <div className="w-20 h-20 mx-auto bg-card border border-border rounded-[2rem] flex items-center justify-center mb-8 shadow-sm group-hover:scale-105 group-hover:rotate-3 transition-transform duration-500">
-                    <Zap className="w-10 h-10 text-[var(--accent-500)]" />
+                  <div className="w-20 h-20 mx-auto bg-card border border-border rounded-[2rem] flex items-center justify-center mb-8 shadow-sm">
+                    <Layers className="w-10 h-10 text-[var(--accent-500)]" />
                   </div>
                   <h3 className="text-2xl font-bold tracking-tight mb-3">Ready to go viral?</h3>
                   <p className="text-muted-foreground mb-10 max-w-sm mx-auto text-[15px] leading-relaxed">
@@ -1662,7 +1662,7 @@ export default function DashboardPage() {
                   </p>
                   <Link href="/create">
                     <Button className="rounded-full bg-foreground text-background font-semibold px-8 h-12 text-[15px] hover:opacity-90 shadow-lg shadow-black/5 hover:shadow-black/10 transition-all hover:-translate-y-0.5 active:translate-y-0">
-                      <Zap className="w-4 h-4 mr-2" /> Start creating
+                      <Layers className="w-4 h-4 mr-2" /> Start creating
                     </Button>
                   </Link>
                 </div>

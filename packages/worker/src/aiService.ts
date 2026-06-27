@@ -73,7 +73,14 @@ async function generateWithFailover(contents: any): Promise<{ text: string; mode
         const model = MODEL_FALLBACK_CHAIN[i];
         try {
             console.log(`[🤖] Attempting model: ${model} (${i + 1}/${MODEL_FALLBACK_CHAIN.length})`);
-            const result = await ai.models.generateContent({ model, contents });
+            const result = await ai.models.generateContent({ 
+                model, 
+                contents,
+                config: {
+                    responseMimeType: 'application/json',
+                    maxOutputTokens: 8192,
+                }
+            });
             console.log(`[✅] Model ${model} succeeded.`);
             return { text: result.text!, modelUsed: model };
         } catch (error: any) {

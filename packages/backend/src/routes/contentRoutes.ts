@@ -124,7 +124,14 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
         const isPro = subscription && subscription.plan === 'pro' && subscription.status === 'active';
         const clipLimit = isPro ? 6 : 3;
 
-        if (subscription && ['expired', 'canceled', 'past_due'].includes(subscription.status)) {
+        if (!subscription || subscription.status === 'none') {
+            return res.status(403).json({
+                message: 'Please start a free trial to create atomizations.',
+                code: 'TRIAL_REQUIRED',
+            });
+        }
+
+        if (['expired', 'canceled', 'past_due'].includes(subscription.status)) {
             return res.status(403).json({
                 message: 'Your free trial or subscription has ended. Please upgrade to Pro to continue.',
                 code: 'SUBSCRIPTION_INACTIVE',

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, Clock, CreditCard, Loader2, Sparkles, X } from "lucide-react";
+import { AlertCircle, Clock, CreditCard, Loader2, Layers, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -57,14 +57,14 @@ export function SubscriptionBanner() {
     };
 
     let variant: "info" | "warning" | "urgent" | "trial" = "info";
-    let icon = <Sparkles className="h-4 w-4" />;
+    let icon = <Layers className="h-4 w-4" />;
     let message = "";
     let cta = "";
     let ctaAction: (() => void) | null = null;
 
     if (status === "none") {
         variant = "info";
-        icon = <Sparkles className="h-4 w-4" />;
+        icon = <Layers className="h-4 w-4" />;
         message = "Start your 7-day free trial to explore OmniContent AI — no card required.";
         cta = "Start Free Trial";
         ctaAction = handleStartTrial;
