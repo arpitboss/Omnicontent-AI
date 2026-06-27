@@ -13,6 +13,8 @@ import { v2 as cloudinary } from 'cloudinary';
 
 // Cloudinary is configured when this module loads via the import side-effect
 import '../utils/cloudinary';
+import Subscription from '../models/subscriptionModel';
+import { requirePlan, getSubscription } from '../middleware/requirePlan';
 
 require('dotenv').config();
 
@@ -103,11 +105,7 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
     try {
         const { url, clipLength, enableCaptions, timeframe, captionStyle } = req.body;
         const userId = req.auth?.userId;
-        const sessionClaims = req.auth?.sessionClaims as any;
         console.log("Received atomization request:", { url, clipLength, enableCaptions, timeframe });
-
-        const plan = sessionClaims?.metadata?.plan || 'free';
-        const clipLimit = plan === 'pro' ? 6 : 3;
 
         if (!userId) {
             return res.status(401).json({ message: 'Unauthorized' });
@@ -121,8 +119,41 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
             return res.status(400).json({ message: 'Invalid or blocked URL. Only public HTTP/HTTPS URLs are allowed.' });
         }
 
+        // Subscription-based limits
+        const subscription = await getSubscription(userId);
+        const isPro = subscription && subscription.plan === 'pro' && subscription.status === 'active';
+        const clipLimit = isPro ? 6 : 3;
+
+        if (subscription && ['expired', 'canceled', 'past_due'].includes(subscription.status)) {
+            return res.status(403).json({
+                message: 'Your free trial or subscription has ended. Please upgrade to Pro to continue.',
+                code: 'SUBSCRIPTION_INACTIVE',
+            });
+        }
+
+        // Check atomization limit for free/trial users
+        const FREE_ATOMIZATION_LIMIT = 3;
+        if (!isPro) {
+            const usageCount = subscription?.atomizationsUsed || 0;
+            if (usageCount >= FREE_ATOMIZATION_LIMIT) {
+                return res.status(403).json({
+                    message: `You've reached the free limit of ${FREE_ATOMIZATION_LIMIT} projects. Please upgrade to Pro for unlimited atomizations.`,
+                    code: 'ATOMIZATION_LIMIT_REACHED',
+                    atomizationsUsed: usageCount,
+                    atomizationsLimit: FREE_ATOMIZATION_LIMIT,
+                });
+            }
+        }
+
         const newContent = new Content({ userId, sourceUrl: url, status: 'PENDING' });
         await newContent.save();
+
+        // Increment usage counter
+        await Subscription.findOneAndUpdate(
+            { userId },
+            { $inc: { atomizationsUsed: 1 } },
+            { upsert: true }
+        );
 
         const job = {
             url, userId, contentId: newContent._id,
@@ -157,10 +188,32 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
 
     const { clipLength, enableCaptions, timeframeStart, timeframeEnd, captionStyle } = req.body;
     const userId = req.auth?.userId;
-    const sessionClaims = req.auth?.sessionClaims as any;
 
-    const plan = sessionClaims?.metadata?.plan || 'free';
-    const clipLimit = plan === 'pro' ? 6 : 3;
+    // Subscription-based limits
+    const subscription = await getSubscription(userId!);
+    const isPro = subscription && subscription.plan === 'pro' && subscription.status === 'active';
+    const clipLimit = isPro ? 6 : 3;
+
+    if (subscription && ['expired', 'canceled', 'past_due'].includes(subscription.status)) {
+        return res.status(403).json({
+            message: 'Your free trial or subscription has ended. Please upgrade to Pro to continue.',
+            code: 'SUBSCRIPTION_INACTIVE',
+        });
+    }
+
+    // Check atomization limit for non-Pro users
+    const FREE_ATOMIZATION_LIMIT = 3;
+    if (!isPro) {
+        const usageCount = subscription?.atomizationsUsed || 0;
+        if (usageCount >= FREE_ATOMIZATION_LIMIT) {
+            return res.status(403).json({
+                message: `You've reached the free limit of ${FREE_ATOMIZATION_LIMIT} projects. Please upgrade to Pro for unlimited atomizations.`,
+                code: 'ATOMIZATION_LIMIT_REACHED',
+                atomizationsUsed: usageCount,
+                atomizationsLimit: FREE_ATOMIZATION_LIMIT,
+            });
+        }
+    }
 
     try {
         // Upload buffer directly to Cloudinary using a stream
@@ -201,6 +254,13 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
 
         await queueJob(job);
 
+        // Increment usage counter
+        await Subscription.findOneAndUpdate(
+            { userId },
+            { $inc: { atomizationsUsed: 1 } },
+            { upsert: true }
+        );
+
         res.status(202).json({ message: 'File upload accepted.', contentId: newContent._id });
 
     } catch (error) {
@@ -224,7 +284,7 @@ router.get('/', requireAuth(), async (req: express.Request, res: express.Respons
     }
 });
 
-router.post('/translate', requireAuth(), async (req, res) => {
+router.post('/translate', requireAuth(), requirePlan('pro'), async (req, res) => {
     const { text, targetLanguage } = req.body;
     if (!text || !targetLanguage) {
         return res.status(400).json({ message: 'Text and target language are required.' });
@@ -250,7 +310,7 @@ router.post('/translate', requireAuth(), async (req, res) => {
     }
 });
 
-router.get('/:contentId/export-all', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.get('/:contentId/export-all', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
@@ -307,7 +367,7 @@ router.get('/:contentId/export-all', requireAuth(), async (req: express.Request,
     }
 });
 
-router.post('/:contentId/clips/:clipId/reformat', requireAuth(), async (req, res) => {
+router.post('/:contentId/clips/:clipId/reformat', requireAuth(), requirePlan('pro'), async (req, res) => {
     const { contentId, clipId } = req.params;
     const { aspectRatio } = req.body;
     const userId = req.auth?.userId;

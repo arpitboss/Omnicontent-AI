@@ -19,6 +19,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { SubscriptionBanner } from "@/components/subscription-banner";
+import { UpgradeModal } from "@/components/upgrade-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +56,7 @@ export default function CreatePage() {
 
   const [submit, setSubmit] = React.useState<SubmitState>("idle");
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [upgradeModalFeature, setUpgradeModalFeature] = React.useState<string | null>(null);
 
   const apiBase =
     process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
@@ -87,6 +90,14 @@ export default function CreatePage() {
           body: JSON.stringify({ url, ...getOptions() }),
         });
         if (!res.ok) {
+          if (res.status === 403) {
+            const data = await res.json().catch(() => ({}));
+            if (data.code === 'ATOMIZATION_LIMIT_REACHED') {
+              setSubmit("idle");
+              setUpgradeModalFeature("Project limit reached");
+              return;
+            }
+          }
           throw new Error(
             (await res.text().catch(() => "")) ||
               "Failed to start atomization."
@@ -108,6 +119,14 @@ export default function CreatePage() {
           body: formData,
         });
         if (!res.ok) {
+          if (res.status === 403) {
+            const data = await res.json().catch(() => ({}));
+            if (data.code === 'ATOMIZATION_LIMIT_REACHED') {
+              setSubmit("idle");
+              setUpgradeModalFeature("Project limit reached");
+              return;
+            }
+          }
           throw new Error(
             (await res.text().catch(() => "")) ||
               "Failed to start atomization."
@@ -142,6 +161,7 @@ export default function CreatePage() {
         />
 
         <div className="container-page max-w-6xl">
+          <SubscriptionBanner />
           {/* Header */}
           <motion.header
             initial={{ opacity: 0, y: 8 }}
@@ -426,6 +446,11 @@ export default function CreatePage() {
         </div>
       </main>
       <Footer />
+      <UpgradeModal
+        open={upgradeModalFeature !== null}
+        onClose={() => setUpgradeModalFeature(null)}
+        feature={upgradeModalFeature || undefined}
+      />
     </>
   );
 }

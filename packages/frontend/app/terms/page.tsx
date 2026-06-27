@@ -59,8 +59,8 @@ export default function TermsPage() {
             <Block heading="Contact">
               <p className="text-muted-foreground">
                 For legal inquiries, write to{" "}
-                <a className="text-foreground underline-offset-4 hover:underline" href="mailto:legal@omnicontent.ai">
-                  legal@omnicontent.ai
+                <a className="text-foreground underline-offset-4 hover:underline" href="mailto:contact@arpitverma.me">
+                  contact@arpitverma.me
                 </a>
                 .
               </p>

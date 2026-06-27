@@ -19,8 +19,11 @@ import { ArticleSkeleton, LinkedInSkeleton, TwitterSkeleton } from "@/components
 import { TranscriptDisplay } from "@/components/transcript-display";
 import { TypewriterText } from "@/components/typewriter-text";
 import { PremiumEditor } from "@/components/premium-editor";
+import { SubscriptionBanner } from "@/components/subscription-banner";
+import { UpgradeModal } from "@/components/upgrade-modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useSubscription } from "@/hooks/use-subscription";
 import {
   Dialog,
   DialogContent,
@@ -186,6 +189,8 @@ function formatTimeSince(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/$/, "");
+
 // ---------------- Animation Components ----------------
 
 // ------------- Subcomponents ---------------
@@ -251,6 +256,8 @@ const ContentDisplayCard = ({
   isExporting,
   downloadInfo,
   onSaved,
+  isProFeatureAvailable,
+  onRequirePro,
 }: {
   content: Content;
   onDownload: (contentId: string, clip: Clip, aspectRatio: string) => void;
@@ -260,9 +267,11 @@ const ContentDisplayCard = ({
   showTranslation: boolean;
   setShowTranslation: (val: boolean) => void;
   onPublished: () => void;
-  isExporting: boolean;
+  isExporting?: boolean;
   downloadInfo?: { url: string; filename: string; expiresAt: number };
   onSaved?: (updatedContent?: Record<string, unknown>) => void;
+  isProFeatureAvailable?: boolean;
+  onRequirePro?: (feature: string) => void;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -422,7 +431,13 @@ const ContentDisplayCard = ({
                 ? "bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-[var(--accent-500)]/20 border-amber-500/40 text-foreground shadow-sm shadow-amber-500/5 scale-103"
                 : "border-border hover:border-foreground/30 hover:bg-accent dark:hover:bg-white/[0.03]"
             )}
-            onClick={() => setIsEditMode(!isEditMode)}
+            onClick={() => {
+              if (!isProFeatureAvailable && !isEditMode) {
+                onRequirePro?.("Premium Editor");
+                return;
+              }
+              setIsEditMode(!isEditMode);
+            }}
           >
             {isEditMode ? (
               <Eye className="mr-2 h-3.5 w-3.5 text-muted-foreground transition-transform duration-300" />
@@ -433,7 +448,15 @@ const ContentDisplayCard = ({
           </Button>
 
           {content.status === 'COMPLETE' && (
-            <PublishHub content={content} onPublished={onPublished} />
+            <div onClickCapture={(e) => {
+               if (!isProFeatureAvailable) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onRequirePro?.("Multi-Platform Publishing");
+               }
+            }}>
+              <PublishHub content={content} onPublished={onPublished} />
+            </div>
           )}
         </div>
       </div>
@@ -1188,10 +1211,9 @@ const FailedJobCard = ({
 };
 
 export default function DashboardPage() {
-  // Plan unused, removing to fix lint
-  // Plan unused, removing to fix lint
-
   const { getToken, userId } = useAuth();
+  const { isProFeatureAvailable } = useSubscription();
+  const [upgradeModalFeature, setUpgradeModalFeature] = useState<string | null>(null);
   const [activeKey, setActiveKey] = useState("");
   const [, setActiveModel] = useState("flux");
   const [authUrl, setAuthUrl] = useState("");
@@ -1221,7 +1243,7 @@ export default function DashboardPage() {
   }, []);
 
   const { data: contents, error, isLoading, mutate } = useSWR<Content[]>(
-    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content`,
+    `${API_BASE}/api/v1/content`,
     (url) => fetcher(url, getToken),
     { refreshInterval: 5000 }
   );
@@ -1293,7 +1315,7 @@ export default function DashboardPage() {
   // ---- Socket for reformat events ----
   useEffect(() => {
     if (!userId) return;
-    const socket: Socket = io((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'));
+    const socket: Socket = io(API_BASE);
     socket.emit('join_room', userId);
 
     const handleReformatComplete = () => mutate();
@@ -1308,14 +1330,22 @@ export default function DashboardPage() {
   }, [userId, mutate]);
 
   const handleOpenTranslateDialog = (contentId: string) => {
+    if (!isProFeatureAvailable) {
+      setUpgradeModalFeature("AI Translation");
+      return;
+    }
     setCurrentContentId(contentId);
     setTargetLanguage('');
     setIsTranslateDialogOpen(true);
   };
 
   const handleDownload = async (contentId: string, clip: Clip, aspectRatio: string) => {
+    if (!isProFeatureAvailable) {
+      setUpgradeModalFeature("Video Reformatting");
+      return;
+    }
     const token = await getToken();
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}/clips/${clip._id}/reformat`, {
+    const res = await fetch(`${API_BASE}/api/v1/content/${contentId}/clips/${clip._id}/reformat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ aspectRatio }),
@@ -1332,7 +1362,7 @@ export default function DashboardPage() {
     setDeletingIds(prev => new Set(prev).add(contentId));
     try {
       const token = await getToken();
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}`, {
+      const res = await fetch(`${API_BASE}/api/v1/content/${contentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1367,7 +1397,7 @@ export default function DashboardPage() {
     try {
       const translate = async (text: string) => {
         if (!text) return '';
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/translate`, {
+        const res = await fetch(`${API_BASE}/api/v1/content/translate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ text, targetLanguage }),
@@ -1407,6 +1437,10 @@ export default function DashboardPage() {
   };
 
   const handleExportAll = async (contentId: string) => {
+    if (!isProFeatureAvailable) {
+      setUpgradeModalFeature("Batch Export");
+      return;
+    }
     const token = await getToken();
     setExportingIds(prev => new Set(prev).add(contentId));
     toast.info("Preparing your export...", { 
@@ -1416,7 +1450,7 @@ export default function DashboardPage() {
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/content/${contentId}/export-all`,
+        `${API_BASE}/api/v1/content/${contentId}/export-all`,
         {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
@@ -1487,6 +1521,7 @@ export default function DashboardPage() {
         />
 
         <div className="container-page max-w-7xl">
+          <SubscriptionBanner />
 
           <motion.header
             initial={{ opacity: 0, y: 8 }}
@@ -1708,6 +1743,8 @@ export default function DashboardPage() {
                     onPublished={() => mutate()}
                     isExporting={exportingIds.has(content._id)}
                     downloadInfo={downloadUrls[content._id]}
+                    isProFeatureAvailable={isProFeatureAvailable}
+                    onRequirePro={setUpgradeModalFeature}
                     onSaved={(updatedContent?: Record<string, unknown>) => {
                       if (updatedContent) {
                         // Optimistic SWR cache update — instantly patch the matching content in the local cache
@@ -1807,6 +1844,12 @@ export default function DashboardPage() {
       >
         <ArrowUp className="w-5 h-5" />
       </button>
+
+      <UpgradeModal
+        open={upgradeModalFeature !== null}
+        onClose={() => setUpgradeModalFeature(null)}
+        feature={upgradeModalFeature || undefined}
+      />
     </>
   );
 }

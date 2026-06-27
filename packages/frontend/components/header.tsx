@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { Menu } from "lucide-react";
+import { Layers, Menu } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useSubscription } from "@/hooks/use-subscription";
 
 /* ─── Brand mark ─────────────────────────────────────
    Concept: "play once, broadcast everywhere."
@@ -74,6 +75,7 @@ function LogoMark({ className }: { className?: string }) {
 const NAV_ITEMS = [
   { name: "Create", href: "/create" },
   { name: "Dashboard", href: "/dashboard" },
+  { name: "Billing", href: "/billing" },
   { name: "Pricing", href: "/#pricing" },
 ] as const;
 
@@ -175,6 +177,7 @@ export const Header: React.FC = () => {
           </SignedOut>
 
           <SignedIn>
+            <PlanBadge />
             <UserButton
               afterSignOutUrl="/"
               appearance={{
@@ -285,3 +288,36 @@ function MobileNav({ pathname }: { pathname: string | null }) {
     </Sheet>
   );
 }
+
+function PlanBadge() {
+  const { plan, status, trialDaysLeft, isLoading } = useSubscription();
+
+  if (isLoading) return null;
+
+  if (plan === "pro" && status === "active") {
+    return (
+      <Link
+        href="/billing"
+        className="hidden sm:inline-flex items-center gap-1 h-6 px-2 rounded-full bg-brand/12 border border-brand/30 text-[10px] font-mono uppercase tracking-[0.14em] text-brand hover:bg-brand/20 transition-colors"
+      >
+        <Layers className="h-2.5 w-2.5" />
+        PRO
+      </Link>
+    );
+  }
+
+  if (status === "trialing" && trialDaysLeft !== null) {
+    return (
+      <Link
+        href="/billing"
+        className="hidden sm:inline-flex items-center gap-1 h-6 px-2 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] font-mono uppercase tracking-[0.14em] text-amber-500 hover:bg-amber-500/15 transition-colors"
+      >
+        <span className="h-1 w-1 rounded-full bg-amber-500 animate-pulse" />
+        Trial · {trialDaysLeft}d
+      </Link>
+    );
+  }
+
+  return null;
+}
+

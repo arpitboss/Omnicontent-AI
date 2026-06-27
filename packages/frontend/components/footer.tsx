@@ -168,7 +168,7 @@ const FOOTER_LINKS = {
   Resources: [
     { name: "Dashboard", href: "/dashboard" },
     { name: "Status", href: "/status" },
-    { name: "Contact", href: "mailto:hello@omnicontent.ai" },
+    { name: "Contact", href: "mailto:contact@arpitverma.me" },
   ],
   Legal: [
     { name: "Privacy", href: "/privacy" },

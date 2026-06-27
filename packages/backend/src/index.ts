@@ -9,8 +9,8 @@ import path from 'path';
 import connectDB from './config/db';
 import contentRoutes from './routes/contentRoutes';
 import publishRoutes from './routes/publishRoutes';
+import billingRoutes, { stripeWebhookHandler } from './routes/billingRoutes';
 import { clerkMiddleware } from '@clerk/express';
-// import billingRoutes from './routes/billingRoutes';
 
 dotenv.config();
 connectDB();
@@ -49,6 +49,10 @@ if (!INTERNAL_API_SECRET) {
 }
 
 app.use(cors(corsOptions));
+
+// Stripe webhook needs the raw body for signature verification — mount BEFORE express.json()
+app.post('/api/v1/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(clerkMiddleware());
@@ -89,7 +93,7 @@ app.post('/api/internal/notify', express.json(), (req, res) => {
 // API routes
 app.use('/api/v1/content', contentRoutes);
 app.use('/api/v1/publish', publishRoutes);
-// app.use('/api/v1/billing', billingRoutes);
+app.use('/api/v1/billing', billingRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

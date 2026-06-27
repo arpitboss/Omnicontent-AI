@@ -46,8 +46,8 @@ export default function PrivacyPage() {
               <p className="text-muted-foreground">
                 You can export or delete your content at any time from the
                 Dashboard. To request full account deletion, email{" "}
-                <a className="text-foreground underline-offset-4 hover:underline" href="mailto:privacy@omnicontent.ai">
-                  privacy@omnicontent.ai
+                <a className="text-foreground underline-offset-4 hover:underline" href="mailto:contact@arpitverma.me">
+                  contact@arpitverma.me
                 </a>
                 .
               </p>
@@ -65,8 +65,8 @@ export default function PrivacyPage() {
             <Block heading="Contact">
               <p className="text-muted-foreground">
                 Questions? Reach us at{" "}
-                <a className="text-foreground underline-offset-4 hover:underline" href="mailto:hello@omnicontent.ai">
-                  hello@omnicontent.ai
+                <a className="text-foreground underline-offset-4 hover:underline" href="mailto:contact@arpitverma.me">
+                  contact@arpitverma.me
                 </a>
                 .
               </p>

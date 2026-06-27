@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import express from 'express';
 import SocialAccount from '../models/socialAccountModel';
 import Content from '../models/contentModel';
+import { requirePlan } from '../middleware/requirePlan';
 
 require('dotenv').config();
 
@@ -124,7 +125,7 @@ router.get('/accounts', requireAuth(), async (req: express.Request, res: express
 });
 
 // ─── Initiate OAuth (returns auth URL, frontend handles redirect) ───
-router.post('/connect/:platform', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/connect/:platform', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     const { platform } = req.params;
     const userId = req.auth?.userId;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -369,7 +370,7 @@ router.delete('/disconnect/:platform', requireAuth(), async (req: express.Reques
 // ═══════════════════ DIRECT PUBLISH ENDPOINTS ═══════════════════
 
 // ─── Publish to LinkedIn ───
-router.post('/linkedin/:contentId', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/linkedin/:contentId', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
@@ -491,7 +492,7 @@ router.post('/linkedin/:contentId', requireAuth(), async (req: express.Request, 
 });
 
 // ─── Publish to YouTube Shorts ───
-router.post('/youtube/:contentId/:clipId', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/youtube/:contentId/:clipId', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId, clipId } = req.params;
         const userId = req.auth?.userId;
@@ -595,7 +596,7 @@ router.post('/youtube/:contentId/:clipId', requireAuth(), async (req: express.Re
 
 
 // ─── Publish to Twitter/X (via GetXAPI) ───
-router.post('/twitter/:contentId', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/twitter/:contentId', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
