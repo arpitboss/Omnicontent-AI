@@ -53,7 +53,7 @@ const SubscriptionContext = createContext<SubscriptionContextType>(defaultContex
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8080");
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
-    const { getToken, isSignedIn } = useAuth();
+    const { getToken, isSignedIn, isLoaded } = useAuth();
     const [data, setData] = useState<SubscriptionData>({
         plan: "free",
         status: "none",
@@ -68,6 +68,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchSubscription = useCallback(async () => {
+        if (!isLoaded) return;
+        
         if (!isSignedIn) {
             setIsLoading(false);
             return;
@@ -96,7 +98,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         } finally {
             setIsLoading(false);
         }
-    }, [getToken, isSignedIn]);
+    }, [getToken, isSignedIn, isLoaded]);
 
     useEffect(() => {
         fetchSubscription();
