@@ -1228,12 +1228,12 @@ export default function DashboardPage() {
 
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1)); // Strip '#'
-        keyFromUrl = hashParams.get("key") || hashParams.get("token") || hashParams.get("access_token") || hashParams.get("code");
+        keyFromUrl = hashParams.get("api_key") || hashParams.get("key") || hashParams.get("token") || hashParams.get("access_token") || hashParams.get("code");
       }
       
       if (!keyFromUrl && search) {
         const searchParams = new URLSearchParams(search);
-        keyFromUrl = searchParams.get("key") || searchParams.get("token") || searchParams.get("access_token") || searchParams.get("code");
+        keyFromUrl = searchParams.get("api_key") || searchParams.get("key") || searchParams.get("token") || searchParams.get("access_token") || searchParams.get("code");
       }
 
       if (keyFromUrl) {
