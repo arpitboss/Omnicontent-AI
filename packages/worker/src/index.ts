@@ -275,10 +275,11 @@ const startWorker = async () => {
                         };
                     });
 
-                    const generatedTitle = analysis.blogPostMarkdown.split('\n')[0].replace(/#+\s*/, '').trim();
+                    const generatedTitle = analysis.blogPostMarkdown ? analysis.blogPostMarkdown.split('\n')[0].replace(/#+\s*/, '').trim() : "Untitled Project";
 
                     await Content.findByIdAndUpdate(contentId, {
-                        status: clipMetadata.length > 0 ? 'GENERATING_VIDEOS' : 'READY',
+                        status: clipMetadata.length > 0 ? 'GENERATING_VIDEOS' : 'FAILED',
+                        errorMessage: clipMetadata.length === 0 ? 'AI failed to generate video clips (JSON truncation). Please try a shorter video.' : undefined,
                         localSourcePath: finalSourcePath,
                         summary: analysis.summary,
                         originalSummary: analysis.summary,
@@ -350,24 +351,6 @@ const startWorker = async () => {
                         { $set: { "clips.$.s3Url": downloadUrl, "clips.$.status": 'READY' } }
                     );
                     console.log(`[📹] Clip ${clipId} finished processing.`);
-
-                    // ACK only AFTER successful processing — if worker crashes, message stays in queue
-                    channel.ack(msg);
-
-                    // After updating, refetch the document to check the status of all clips
-                    const updatedContent = await Content.findById(contentId);
-                    const allClipsProcessed = updatedContent?.clips.every(c => c.status === 'READY' || c.status === 'FAILED');
-
-                    if (allClipsProcessed) {
-                        const allFailed = updatedContent?.clips.every(c => c.status === 'FAILED');
-                        if (allFailed) {
-                            await Content.findByIdAndUpdate(contentId, { status: 'FAILED', errorMessage: 'All video clips failed to generate.' });
-                            console.log(`[❌] All clips for content ${contentId} failed. Job marked as FAILED.`);
-                        } else {
-                            await Content.findByIdAndUpdate(contentId, { status: 'COMPLETE' });
-                            console.log(`[🎉] All clips for content ${contentId} are processed. Job is COMPLETE.`);
-                        }
-                    }
                 } catch (err) {
                     await Content.updateOne({ "clips._id": clipId }, { $set: { "clips.$.status": 'FAILED' } });
                     console.error(`Failed to process video for clip ${clipId}:`, err);
@@ -415,8 +398,8 @@ const startWorker = async () => {
                     const user = await clerkClient.users.getUser(content.userId);
                     const plan = user.publicMetadata?.plan as 'pro' | 'free' || 'free';
 
-                    const startTime = clip.wordEvents[0].start!;
-                    const endTime = clip.wordEvents[clip.wordEvents.length - 1].end!;
+                    const startTime = clip.wordEvents && clip.wordEvents.length > 0 ? clip.wordEvents[0].start! : clip.startTime;
+                    const endTime = clip.wordEvents && clip.wordEvents.length > 0 ? clip.wordEvents[clip.wordEvents.length - 1].end! : clip.endTime;
                     const outputFileName = `${reformatJobId}_${aspectRatio.replace(':', 'x')}`;
                     const captionStyle = 'default'; // Could be dynamic based on user preference
 

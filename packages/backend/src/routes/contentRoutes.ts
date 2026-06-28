@@ -10,6 +10,7 @@ import fs from 'fs';
 import { URL } from 'url';
 import Content from '../models/contentModel'; // Import the model
 import { v2 as cloudinary } from 'cloudinary';
+import { jsonrepair } from 'jsonrepair';
 
 // Cloudinary is configured when this module loads via the import side-effect
 import '../utils/cloudinary';
@@ -486,8 +487,16 @@ async function regenerateContentFromTranscript(transcriptSegments: any[]): Promi
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    const cleanJson = extractFirstJsonObject(responseText);
-    const parsed = JSON.parse(cleanJson);
+
+    let parsed;
+    try {
+        const cleanJson = extractFirstJsonObject(responseText);
+        parsed = JSON.parse(cleanJson);
+    } catch {
+        // Fallback: try jsonrepair for malformed output
+        const repaired = jsonrepair(responseText);
+        parsed = JSON.parse(repaired);
+    }
 
     return {
         summary: parsed.summary || "",

@@ -96,8 +96,11 @@ export function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {
                             </h2>
                             {feature ? (
                                 <p className="text-center text-sm text-muted-foreground mb-6">
-                                    <span className="font-medium text-foreground">{feature}</span> is a Pro feature.
-                                    Upgrade to unlock it and everything else.
+                                    {feature === 'Project limit reached' ? (
+                                        <>You've reached your free project limit. Upgrade to unlock unlimited projects and everything else.</>
+                                    ) : (
+                                        <><span className="font-medium text-foreground">{feature}</span> is a Pro feature. Upgrade to unlock it and everything else.</>
+                                    )}
                                 </p>
                             ) : (
                                 <p className="text-center text-sm text-muted-foreground mb-6">

@@ -4,7 +4,7 @@ import {
     createPartFromUri,
     createUserContent,
 } from "@google/genai";
-import { extractJsonObject } from "./utils/json";
+import { jsonrepair } from "jsonrepair";
 
 require('dotenv').config();
 
@@ -41,13 +41,6 @@ const MODEL_FALLBACK_CHAIN = [
     'gemini-3-flash',
 ].filter((model, index, self) => self.indexOf(model) === index); // Deduplicate
 
-
-function extractFirstJsonObject(text: string): string {
-    const match = text.match(/{[\s\S]*}/);
-    if (!match) throw new Error("No JSON object found in response.");
-    return match[0];
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function uploadAndWait(filePath: string, mimeType: string) {
@@ -78,7 +71,7 @@ async function generateWithFailover(contents: any): Promise<{ text: string; mode
                 contents,
                 config: {
                     responseMimeType: 'application/json',
-                    maxOutputTokens: 8192,
+                    maxOutputTokens: 65536,
                 }
             });
             console.log(`[✅] Model ${model} succeeded.`);
@@ -103,29 +96,6 @@ async function generateWithFailover(contents: any): Promise<{ text: string; mode
     throw new Error('All models in the failover chain failed.');
 }
 
-/**
- * Attempts to repair a broken JSON string using a fast AI model.
- */
-const repairJsonWithAi = async (brokenJson: string): Promise<string> => {
-    console.warn('[⚠️] Malformed JSON detected. Attempting AI-powered repair...');
-
-    const prompt = `The following text is supposed to be a single, valid JSON object, but it contains a syntax error. Please analyze the text, fix the error (e.g., missing commas, unescaped quotes, trailing commas), and return ONLY the corrected, valid JSON object. Do not add any new data or explanations.
-
-BROKEN JSON:
-${brokenJson}
-
-CORRECTED JSON:`;
-    // Use the lightest model for repair to avoid burning quota
-    try {
-        const result = await ai.models.generateContent({ model: 'gemini-2.5-flash-lite', contents: prompt });
-        return result.text!;
-    } catch {
-        const { text } = await generateWithFailover(prompt);
-        return text;
-    }
-};
-
-
 export const atomizeVideoContent = async (source: string, options: any): Promise<AtomizationResult> => {
     console.log(`[🤖] Starting AI analysis with options:`, options);
     console.log(`[🤖] Model failover chain: ${MODEL_FALLBACK_CHAIN.join(' → ')}`);
@@ -147,7 +117,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
             - An engaging introduction that hooks the reader.
             - Well-structured sections with Markdown headings (##) and subheadings (###).
             - **Placeholders for visuals**, formatted exactly like this: "[Image: A vibrant, abstract image representing creative ideas]" or "[Image: A close-up of a person typing on a laptop]". Use descriptive terms suitable for a stock photo search.
-        3.  "transcript": A structured transcript as an array of objects. CRITICAL: Combine multiple sentences into a single large text block (approx 30-60 seconds of speech) per object to keep the array small and avoid exceeding token limits. Each object must have a "timestamp" (string, e.g., "01:23") and the corresponding "text" (string).
+        3.  "transcript": A structured transcript as an array of objects. CRITICAL: Combine multiple sentences into a single large text block (approx 30-60 seconds of speech) per object to keep the array small. Each object must have a "timestamp" (string, e.g., "01:23") and the corresponding "text" (string).
         4.  "linkedinPost": A professional post for LinkedIn. It must:
             - Start with a strong, relatable hook (e.g., "Ever struggle with...?").
             - Use bullet points with professional emojis (e.g., ✅, 💡, 🚀) to list 3-4 key insights.
@@ -175,64 +145,42 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
             }
         ]
 
+        CRITICAL: All string values in the JSON must have special characters properly escaped. Double quotes inside strings must be escaped as \\". Newlines must be escaped as \\n. Backslashes must be escaped as \\\\.
         Your entire output must be a single, valid JSON object with the keys listed above.
-        CRITICAL: Your entire response must be ONLY the valid JSON object, starting with { and ending with }. Do not include any other text, explanations, or markdown formatting like \`\`\`json before or after the object.
     `;
 
-    let contents;
-
     const myfile = await uploadAndWait(source, "video/mp4");
-    contents = createUserContent([
+    const contents = createUserContent([
         createPartFromUri(myfile.uri!, myfile.mimeType!),
         prompt,
     ]);
+
+    const { text, modelUsed } = await generateWithFailover(contents);
+    console.log(`[🤖] Content generated successfully using model: ${modelUsed}`);
+    console.log(`[🔍] Raw response length: ${text.length} chars`);
+    console.log("[🔍] Response preview (first 300 chars):", text.slice(0, 300) + "...");
+
+    // Step 1: Try direct parse — responseMimeType: 'application/json' should give us clean JSON
     try {
-        const { text, modelUsed } = await generateWithFailover(contents);
-        console.log(`[🤖] Content generated successfully using model: ${modelUsed}`);
-        const rawResponseText = extractFirstJsonObject(text);
-        let cleanJsonString: string;
-
-        try {
-            cleanJsonString = extractJsonObject(rawResponseText);
-            console.log("[🔍] Extracted AI JSON (first 200 chars):", cleanJsonString.slice(0, 200) + "...");
-        } catch (error) {
-            console.error("Could not extract any JSON object from the AI response.", error);
-            throw new Error("AI response did not contain a recognizable JSON object.");
-        }
-
-        try {
-            const parsedResult: AtomizationResult = JSON.parse(cleanJsonString);
-            parsedResult.viralMoments = parsedResult.viralMoments || [];
-            console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
-            return parsedResult;
-        } catch (error) {
-            console.error("Initial JSON.parse failed. Original error:", (error as Error).message);
-
-            try {
-                const repairedJsonString = await repairJsonWithAi(cleanJsonString);
-                const cleanRepairedJson = extractJsonObject(repairedJsonString);
-
-                console.log('[✅] AI repair successful. Parsing repaired JSON.');
-                const parsedResult: AtomizationResult = JSON.parse(cleanRepairedJson);
-                parsedResult.viralMoments = parsedResult.viralMoments || [];
-                console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
-                return parsedResult;
-            } catch (repairError) {
-                console.error("FATAL: AI-powered JSON repair failed. Final error:", (repairError as Error).message);
-                console.error("Original malformed JSON string:", cleanJsonString.slice(0, 500));
-                throw new Error("Failed to generate and repair valid JSON from AI response.");
-            }
-        }
+        const parsedResult: AtomizationResult = JSON.parse(text);
+        parsedResult.viralMoments = parsedResult.viralMoments || [];
+        console.log(`[✅] AI analysis complete. Found ${parsedResult.viralMoments.length} viral moments.`);
+        return parsedResult;
+    } catch (directError) {
+        console.warn("[⚠️] Direct JSON.parse failed:", (directError as Error).message);
     }
-    catch (error) {
-        console.error("Error generating content:", error);
-        return {
-            blogPostMarkdown: "",
-            viralMoments: [],
-            transcript: "",
-            summary: "",
-            linkedinPost: "",
-            twitterThread: [],
-        };
+
+    // Step 2: Try jsonrepair — handles truncation, trailing commas, unescaped chars, etc.
+    try {
+        console.log('[🔧] Attempting JSON repair with jsonrepair library...');
+        const repaired = jsonrepair(text);
+        const parsedResult: AtomizationResult = JSON.parse(repaired);
+        parsedResult.viralMoments = parsedResult.viralMoments || [];
+        console.log(`[✅] JSON repair succeeded. Found ${parsedResult.viralMoments.length} viral moments.`);
+        return parsedResult;
+    } catch (repairError) {
+        console.error("FATAL: jsonrepair also failed:", (repairError as Error).message);
+        console.error("Raw response (first 1000 chars):", text.slice(0, 1000));
+        throw new Error("Failed to parse AI response as JSON even after repair.");
     }
 };
