@@ -27,6 +27,7 @@ export function SubscriptionBanner() {
         atomizationsLimit,
         createCheckout,
         startTrial,
+        isLoading,
     } = useSubscription();
 
     const [dismissed, setDismissed] = React.useState(false);
@@ -36,6 +37,9 @@ export function SubscriptionBanner() {
     React.useEffect(() => {
         setDismissed(false);
     }, [status]);
+
+    // Don't show anything while loading to prevent hydration flickers
+    if (isLoading) return null;
 
     // Pro active users see nothing
     if (status === "active" && plan === "pro") return null;
