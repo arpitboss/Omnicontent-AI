@@ -153,10 +153,12 @@ export const reformatVideoAndAddCaptions = async (options: {
     generateAssFile(wordEvents, assFilePath, captionStyle, startTime, duration);
 
     const ratios = { '9:16': 1080 / 1920, '1:1': 1, '4:5': 1080 / 1350 };
-    const targetW = 1080;
+    // Downscale for free users to prevent Render out-of-memory (OOM) crashes
+    const targetW = plan === 'free' ? 720 : 1080;
     const targetH = Math.round(targetW / ratios[aspectRatio]);
 
-    let filterGraph = `[0:v]split[original][copy];[copy]scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH},boxblur=20:5[background];[original]scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease[foreground];[background][foreground]overlay=(W-w)/2:(H-h)/2`;
+    // Optimize boxblur (from 20:5 to 10:2) to drastically reduce CPU/RAM usage
+    let filterGraph = `[0:v]split[original][copy];[copy]scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH},boxblur=10:2[background];[original]scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease[foreground];[background][foreground]overlay=(W-w)/2:(H-h)/2`;
 
     if (plan === 'free') {
         const watermarkText = "Made with OmniContent AI";
@@ -175,8 +177,9 @@ export const reformatVideoAndAddCaptions = async (options: {
     const ffmpegCommand = `ffmpeg -ss ${startTime} -i "${sourceVideoPath}" -t ${duration} -vf "${filterGraph}" -preset ultrafast -c:a aac "${finalClipPath}" -y`;
 
     try {
-        console.log(`[🔄] Clipping and reformatting to ${aspectRatio}...`);
-        await execPromise(ffmpegCommand);
+        console.log(`[🔄] Clipping and reformatting to ${aspectRatio}... (Resolution: ${targetW}x${targetH})`);
+        // Add 2-minute timeout to prevent hanging worker if ffmpeg gets stuck
+        await execPromise(ffmpegCommand, { timeout: 120000 });
 
         console.log(`[📤] Uploading clipped video to Cloudinary...`);
         const publicUrl = await uploadToCloudinary(finalClipPath, `omnicontent/clips/${outputFileName}`, true);

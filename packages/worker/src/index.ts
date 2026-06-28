@@ -249,21 +249,29 @@ const startWorker = async () => {
 
                     const analysis = await atomizeVideoContent(finalSourcePath, options);
 
-                    const clipMetadata = (analysis.viralMoments || []).map(moment => {
+                    // Strictly enforce clipLimit (AI might hallucinate more clips than allowed)
+                    const maxClips = options.clipLimit || 3;
+                    const maxClipLength = options.clipLength || 30;
+                    const safeViralMoments = (analysis.viralMoments || []).slice(0, maxClips);
+
+                    const clipMetadata = safeViralMoments.map(moment => {
                         console.log(`[🕒] Parsing timestamps for moment: ${moment.title}`);
-                        console.log(`    Moment Keys: ${Object.keys(moment).join(', ')}`);
-                        console.log(`    Raw startTime: ${moment.startTime} (${typeof moment.startTime})`);
-                        console.log(`    Raw endTime: ${moment.endTime} (${typeof moment.endTime})`);
-
+                        
                         const startTime = parseTimestampToSeconds(moment.startTime as any);
-                        const endTime = parseTimestampToSeconds(moment.endTime as any);
-                        console.log(`    Parsed: ${startTime} - ${endTime} (Duration: ${endTime - startTime})`);
+                        let rawEndTime = parseTimestampToSeconds(moment.endTime as any);
+                        
+                        // Strictly enforce clipLength (AI might ignore the prompt limit)
+                        const endTime = Math.min(rawEndTime, startTime + maxClipLength);
+                        console.log(`    Parsed: ${startTime} - ${endTime} (Clamped duration: ${endTime - startTime}s)`);
 
-                        const wordEvents = (moment.wordEvents || []).map(ev => ({
-                            word: ev.word,
-                            start: parseTimestampToSeconds(ev.start as any),
-                            end: parseTimestampToSeconds(ev.end as any),
-                        }));
+                        const wordEvents = (moment.wordEvents || [])
+                            .map(ev => ({
+                                word: ev.word,
+                                start: parseTimestampToSeconds(ev.start as any),
+                                end: parseTimestampToSeconds(ev.end as any),
+                            }))
+                            // Drop any captions that fall after the clamped endTime
+                            .filter(ev => ev.start < endTime);
 
                         return {
                             title: moment.title,
