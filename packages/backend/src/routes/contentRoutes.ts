@@ -340,7 +340,51 @@ router.get('/:contentId/export-all', requireAuth(), requirePlan('pro'), async (r
 
         // --- Add Text Files to the ZIP ---
         if (content.summary) archive.append(content.summary, { name: 'summary.txt' });
-        if (content.generatedContent) archive.append(content.generatedContent, { name: 'article.md' });
+        
+        if (content.generatedContent) {
+            let articleMarkdown = content.generatedContent;
+            
+            // Regex to find all Markdown images: ![alt](url)
+            const imageRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g;
+            let match;
+            let imageIndex = 1;
+            
+            // Collect all image matches first because we need to await the downloads
+            const imagesToDownload = [];
+            
+            while ((match = imageRegex.exec(content.generatedContent)) !== null) {
+                imagesToDownload.push({
+                    fullMatch: match[0],
+                    altText: match[1],
+                    imageUrl: match[2],
+                    filename: `image_${imageIndex}.jpg`,
+                    localPath: `./images/image_${imageIndex}.jpg`
+                });
+                imageIndex++;
+            }
+            
+            // Download images and rewrite markdown
+            for (const img of imagesToDownload) {
+                try {
+                    const response = await axios({
+                        method: 'GET',
+                        url: img.imageUrl,
+                        responseType: 'stream',
+                        timeout: 10000
+                    });
+                    
+                    archive.append(response.data, { name: `images/${img.filename}` });
+                    
+                    // Replace the remote URL with local path in the markdown
+                    articleMarkdown = articleMarkdown.replace(img.fullMatch, `![${img.altText}](${img.localPath})`);
+                } catch (err) {
+                    console.error(`[Export] Failed to download image from URL: ${img.imageUrl}`, err);
+                    // If it fails to download, we just leave the original remote URL in the markdown
+                }
+            }
+
+            archive.append(articleMarkdown, { name: 'article.md' });
+        }
         if (content.linkedinPost) archive.append(content.linkedinPost, { name: 'linkedin_post.txt' });
         if (content.transcript) {
             const transcriptText = content.transcript.map(t => `${t.timestamp} - ${t.text}`).join('\n');
