@@ -1220,17 +1220,27 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // Listen and automatically capture API Keys passed in the URL fragment (Callback redirect)
+      // Listen and automatically capture API Keys passed in the URL fragment OR query string (Callback redirect)
       const hash = window.location.hash;
+      const search = window.location.search;
+      
+      let keyFromUrl: string | null = null;
+
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1)); // Strip '#'
-        const keyFromHash = hashParams.get("key") || hashParams.get("token") || hashParams.get("access_token") || hashParams.get("code");
-        if (keyFromHash) {
-          localStorage.setItem("omnicontent_pollinations_key", keyFromHash.trim());
-          toast.success("Connected to Pollinations.ai Wallet!");
-          // Clean the address bar hash
-          window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        }
+        keyFromUrl = hashParams.get("key") || hashParams.get("token") || hashParams.get("access_token") || hashParams.get("code");
+      }
+      
+      if (!keyFromUrl && search) {
+        const searchParams = new URLSearchParams(search);
+        keyFromUrl = searchParams.get("key") || searchParams.get("token") || searchParams.get("access_token") || searchParams.get("code");
+      }
+
+      if (keyFromUrl) {
+        localStorage.setItem("omnicontent_pollinations_key", keyFromUrl.trim());
+        toast.success("Connected to Pollinations.ai Wallet!");
+        // SECURITY: Clean the address bar entirely so the token doesn't linger in the URL or get bookmarked/copied
+        window.history.replaceState(null, "", window.location.pathname);
       }
 
       setActiveKey(localStorage.getItem("omnicontent_pollinations_key") || "");
