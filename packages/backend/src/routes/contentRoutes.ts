@@ -7,10 +7,10 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { URL } from 'url';
 import Content from '../models/contentModel'; // Import the model
 import { v2 as cloudinary } from 'cloudinary';
 import { jsonrepair } from 'jsonrepair';
+import axios from 'axios';
 
 // Cloudinary is configured when this module loads via the import side-effect
 import '../utils/cloudinary';
@@ -351,20 +351,24 @@ router.get('/:contentId/export-all', requireAuth(), requirePlan('pro'), async (r
         }
 
         // --- Add Video Clip Files to the ZIP ---
-        content.clips.forEach((clip, index) => {
+        for (let index = 0; index < content.clips.length; index++) {
+            const clip = content.clips[index];
             if (clip.status === 'READY' && clip.s3Url) {
-                // We get the local file path from the URL
-                const clipFileName = path.basename(clip.s3Url);
-                const clipFilePath = path.join(__dirname, `../../public/clips/${clipFileName}`);
-                // Check if file exists before adding
-                const fs = require('fs');
-                if (fs.existsSync(clipFilePath)) {
-                    archive.file(clipFilePath, { name: `clips/clip_${index + 1}.mp4` });
-                } else {
-                    console.warn(`[Export] Clip file not found: ${clipFilePath}`);
+                try {
+                    // Fetch the video from Cloudinary as a stream
+                    const response = await axios({
+                        method: 'GET',
+                        url: clip.s3Url,
+                        responseType: 'stream',
+                    });
+                    
+                    // Append the download stream directly into the zip archive
+                    archive.append(response.data, { name: `clips/clip_${index + 1}.mp4` });
+                } catch (err) {
+                    console.error(`[Export] Failed to fetch clip from URL: ${clip.s3Url}`, err);
                 }
             }
-        });
+        }
 
         // Finalize the archive (no more files can be added)
         await archive.finalize();
