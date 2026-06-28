@@ -1,6 +1,7 @@
 // packages/worker/src/aiService.ts
 import {
     GoogleGenAI,
+    Type,
     createPartFromUri,
     createUserContent,
 } from "@google/genai";
@@ -58,6 +59,73 @@ async function uploadAndWait(filePath: string, mimeType: string) {
 }
 
 /**
+ * Strict JSON schema that activates Gemini's constrained decoding.
+ * With this schema, the model physically cannot produce invalid JSON —
+ * every token is validated against the schema at generation time.
+ */
+const ATOMIZATION_SCHEMA = {
+    type: Type.OBJECT,
+    properties: {
+        summary: {
+            type: Type.STRING,
+            description: "A concise, one-paragraph summary of the entire video.",
+        },
+        blogPostMarkdown: {
+            type: Type.STRING,
+            description: "A high-quality blog post in Markdown format.",
+        },
+        transcript: {
+            type: Type.ARRAY,
+            description: "Video transcript grouped into ~30-60 second blocks.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    timestamp: { type: Type.STRING },
+                    text: { type: Type.STRING },
+                },
+                required: ["timestamp", "text"],
+            },
+        },
+        linkedinPost: {
+            type: Type.STRING,
+            description: "A professional LinkedIn post with emojis and hashtags.",
+        },
+        twitterThread: {
+            type: Type.ARRAY,
+            description: "A viral Twitter thread as an array of tweet strings.",
+            items: { type: Type.STRING },
+        },
+        viralMoments: {
+            type: Type.ARRAY,
+            description: "Engaging video clips with word-level timestamps.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    summary: { type: Type.STRING },
+                    startTime: { type: Type.NUMBER },
+                    endTime: { type: Type.NUMBER },
+                    wordEvents: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                word: { type: Type.STRING },
+                                start: { type: Type.NUMBER },
+                                end: { type: Type.NUMBER },
+                            },
+                            required: ["word", "start", "end"],
+                        },
+                    },
+                },
+                required: ["title", "summary", "startTime", "endTime", "wordEvents"],
+            },
+        },
+    },
+    required: ["summary", "blogPostMarkdown", "transcript", "linkedinPost", "twitterThread", "viralMoments"],
+};
+
+/**
  * Attempts to generate content with automatic model failover.
  * If the primary model returns 429/503/overloaded, it cascades to the next fallback model.
  */
@@ -71,6 +139,7 @@ async function generateWithFailover(contents: any): Promise<{ text: string; mode
                 contents,
                 config: {
                     responseMimeType: 'application/json',
+                    responseSchema: ATOMIZATION_SCHEMA,
                     maxOutputTokens: 65536,
                 }
             });
@@ -106,47 +175,21 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
     }
 
     const prompt = `
-        You are an A-list content strategist for top creators and brands. Your work is viral, professional, and has immense value. Analyze the provided video and deconstruct it into the following assets, formatted as a single, valid JSON object.
+        You are an A-list content strategist for top creators and brands. Your work is viral, professional, and has immense value. Analyze the provided video and deconstruct it into the following assets.
 
         ${timeframeConstraint}
 
-        Based on the video, generate the following:
+        Generate the following:
         1.  "summary": A concise, one-paragraph summary of the entire video.
         2.  "blogPostMarkdown": A high-quality blog post in the style of a top-tier Medium or Forbes article. It must include:
             - A compelling, SEO-optimized title (H1).
             - An engaging introduction that hooks the reader.
             - Well-structured sections with Markdown headings (##) and subheadings (###).
-            - **Placeholders for visuals**, formatted exactly like this: "[Image: A vibrant, abstract image representing creative ideas]" or "[Image: A close-up of a person typing on a laptop]". Use descriptive terms suitable for a stock photo search.
+            - Placeholders for visuals, formatted exactly like this: [Image: A vibrant, abstract image representing creative ideas]. Use descriptive terms suitable for a stock photo search.
         3.  "transcript": A structured transcript as an array of objects. CRITICAL: Combine multiple sentences into a single large text block (approx 30-60 seconds of speech) per object to keep the array small. Each object must have a "timestamp" (string, e.g., "01:23") and the corresponding "text" (string).
-        4.  "linkedinPost": A professional post for LinkedIn. It must:
-            - Start with a strong, relatable hook (e.g., "Ever struggle with...?").
-            - Use bullet points with professional emojis (e.g., ✅, 💡, 🚀) to list 3-4 key insights.
-            - End with a thought-provoking question to drive engagement.
-            - Finish with 4-5 relevant, professional hashtags.
-        5.  "twitterThread": A viral-style Twitter thread (an array of strings). It must:
-            - Start with a powerful, curiosity-driving hook in the first tweet.
-            - Use popular emojis to add personality (e.g., 🤯, 👉, 🔥).
-            - Keep each tweet concise and under 280 characters.
-            - Be numbered (1/, 2/, 3/).
-            - End with a strong call-to-action and 3-4 high-traffic hashtags.
-        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime" (number, in seconds), "endTime" (number, in seconds), and "wordEvents" with word-level timestamps for captions.
-
-        Example of "viralMoments" structure:
-        "viralMoments": [
-            {
-                "title": "Clip Title",
-                "summary": "Clip Summary",
-                "startTime": 10.5,
-                "endTime": 25.0,
-                "wordEvents": [
-                    { "word": "Hello", "start": 10.5, "end": 10.9 },
-                    { "word": "world", "start": 10.9, "end": 11.2 }
-                ]
-            }
-        ]
-
-        CRITICAL: All string values in the JSON must have special characters properly escaped. Double quotes inside strings must be escaped as \\". Newlines must be escaped as \\n. Backslashes must be escaped as \\\\.
-        Your entire output must be a single, valid JSON object with the keys listed above.
+        4.  "linkedinPost": A professional post for LinkedIn. Start with a strong hook, use bullet points with professional emojis, end with a question, and finish with 4-5 relevant hashtags.
+        5.  "twitterThread": A viral-style Twitter thread (an array of strings). Start with a curiosity-driving hook, use emojis, keep each tweet under 280 characters, number them (1/, 2/, 3/), and end with a call-to-action and hashtags.
+        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime" (number, in seconds), "endTime" (number, in seconds), and "wordEvents" with word-level timestamps for captions. Each wordEvent has "word" (string), "start" (number), and "end" (number).
     `;
 
     const myfile = await uploadAndWait(source, "video/mp4");
@@ -160,7 +203,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
     console.log(`[🔍] Raw response length: ${text.length} chars`);
     console.log("[🔍] Response preview (first 300 chars):", text.slice(0, 300) + "...");
 
-    // Step 1: Try direct parse — responseMimeType: 'application/json' should give us clean JSON
+    // Step 1: Try direct parse — responseSchema guarantees valid JSON structure
     try {
         const parsedResult: AtomizationResult = JSON.parse(text);
         parsedResult.viralMoments = parsedResult.viralMoments || [];
@@ -170,7 +213,7 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         console.warn("[⚠️] Direct JSON.parse failed:", (directError as Error).message);
     }
 
-    // Step 2: Try jsonrepair — handles truncation, trailing commas, unescaped chars, etc.
+    // Step 2: Safety net — jsonrepair for edge cases
     try {
         console.log('[🔧] Attempting JSON repair with jsonrepair library...');
         const repaired = jsonrepair(text);
