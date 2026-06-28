@@ -27,6 +27,9 @@ const subscriptionSchema = new mongoose.Schema({
     cancelAtPeriodEnd: { type: Boolean, default: false },
     // Usage tracking for free plan limits
     atomizationsUsed: { type: Number, default: 0 },
+    // Lifecycle email idempotency flags
+    trialEndingEmailSentAt: { type: Date },
+    publishNudgeSentAt: { type: Date },
 }, { timestamps: true });
 
 const Subscription = mongoose.model('Subscription', subscriptionSchema);

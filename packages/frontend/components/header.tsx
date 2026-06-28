@@ -75,6 +75,7 @@ function LogoMark({ className }: { className?: string }) {
 const NAV_ITEMS = [
   { name: "Create", href: "/create" },
   { name: "Dashboard", href: "/dashboard" },
+  { name: "Brand Voice", href: "/voice" },
   { name: "Billing", href: "/billing" },
   { name: "Pricing", href: "/#pricing" },
 ] as const;

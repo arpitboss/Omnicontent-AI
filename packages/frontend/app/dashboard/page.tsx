@@ -21,6 +21,7 @@ import { TypewriterText } from "@/components/typewriter-text";
 import { PremiumEditor } from "@/components/premium-editor";
 import { SubscriptionBanner } from "@/components/subscription-banner";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -105,6 +106,7 @@ interface Clip {
   status: "PENDING" | "READY" | "FAILED";
   startTime: number;
   endTime: number;
+  hookVariants?: string[];
 }
 
 interface Content {
@@ -1020,6 +1022,21 @@ const ContentDisplayCard = ({
                         <p className="text-[12.5px] font-medium text-foreground truncate mb-2.5">
                           {clip.title}
                         </p>
+                        {clip.hookVariants && clip.hookVariants.length > 0 && (
+                          <div className="mb-2.5 rounded-lg border border-border bg-secondary/30 p-2">
+                            <p className="text-[9.5px] font-mono uppercase tracking-[0.14em] text-muted-foreground mb-1 px-1">
+                              Hook ideas — tap to copy
+                            </p>
+                            <div className="space-y-0.5">
+                              {clip.hookVariants.slice(0, 3).map((hook, i) => (
+                                <div key={i} className="flex items-center gap-1">
+                                  <p className="flex-1 text-[11px] leading-snug text-foreground/80 line-clamp-2">{hook}</p>
+                                  <CopyButton textToCopy={hook} />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -1606,6 +1623,8 @@ export default function DashboardPage() {
               </Link>
             </div>
           </motion.header>
+
+          <OnboardingChecklist contents={contents} />
 
           {/* Stat cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-8 relative z-20">

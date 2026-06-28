@@ -3,6 +3,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider, useTheme } from "@/context/theme-context";
 import { SubscriptionProvider } from "@/context/subscription-context";
+import { PostHogProvider } from "@/components/posthog-provider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn as clerkLight, dark } from "@clerk/themes";
 
@@ -56,9 +57,11 @@ function ClerkThemeSync({ children }: { children: React.ReactNode }) {
       }}
       publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
     >
-      <SubscriptionProvider>
-        {children}
-      </SubscriptionProvider>
+      <PostHogProvider>
+        <SubscriptionProvider>
+          {children}
+        </SubscriptionProvider>
+      </PostHogProvider>
     </ClerkProvider>
   );
 }

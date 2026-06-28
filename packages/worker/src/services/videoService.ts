@@ -112,6 +112,24 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         cues.push({ start, end, text });
     }
 
+    // Fallback: if the AI's word timestamps all fell outside the clip window (a common
+    // cause of "missing captions"), distribute the words evenly across the clip so the
+    // captions still appear and stay roughly in sync with the speech.
+    if (cues.length === 0 && valid.length > 0 && Number.isFinite(clipDuration)) {
+        const groups = Math.ceil(valid.length / WORDS_PER_CUE);
+        const per = clipDuration / groups;
+        let t = 0;
+        for (let i = 0; i < valid.length; i += WORDS_PER_CUE) {
+            const group = valid.slice(i, i + WORDS_PER_CUE);
+            const text = group
+                .map(g => String(g.word).replace(/[\r\n]+/g, ' ').replace(/\\/g, '').replace(/[{}]/g, '').trim())
+                .filter(Boolean)
+                .join(' ');
+            if (text) cues.push({ start: t, end: Math.min(t + per, clipDuration), text });
+            t += per;
+        }
+    }
+
     const events = cues
         .map(c => `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${c.text}`)
         .join('\n');
@@ -153,8 +171,10 @@ export const reformatVideoAndAddCaptions = async (options: {
     generateAssFile(wordEvents, assFilePath, captionStyle, startTime, duration);
 
     const ratios = { '9:16': 1080 / 1920, '1:1': 1, '4:5': 1080 / 1350 };
-    // Downscale for free users to prevent Render out-of-memory (OOM) crashes
-    const targetW = plan === 'free' ? 720 : 1080;
+    // Free downscales to 720p to avoid Render OOM. Pro renders full HD (1080p) by default;
+    // set PRO_CLIP_WIDTH=2160 once the worker runs on a higher-RAM instance to ship true 4K.
+    const proWidth = Number(process.env.PRO_CLIP_WIDTH) || 1080;
+    const targetW = plan === 'free' ? 720 : proWidth;
     const targetH = Math.round(targetW / ratios[aspectRatio]);
 
     // Optimize boxblur (from 20:5 to 10:2) to drastically reduce CPU/RAM usage
@@ -174,12 +194,20 @@ export const reformatVideoAndAddCaptions = async (options: {
 
     console.log('filter graph: ', filterGraph);
 
-    const ffmpegCommand = `ffmpeg -ss ${startTime} -i "${sourceVideoPath}" -t ${duration} -vf "${filterGraph}" -preset ultrafast -c:a aac "${finalClipPath}" -y`;
+    // Encoding tuned for social platforms (IG Reels / YT Shorts / TikTok):
+    //  - libx264 + yuv420p → universal compatibility (no green/black frames on mobile)
+    //  - a real preset + CRF instead of `ultrafast` (which produced blocky, low-grade clips)
+    //  - AAC 128k audio and +faststart so the file plays/streams instantly
+    // Pro encodes at a lower CRF (higher quality); free stays slightly lighter for Render limits.
+    const preset = 'veryfast';
+    const crf = plan === 'free' ? 23 : 20;
+
+    const ffmpegCommand = `ffmpeg -ss ${startTime} -i "${sourceVideoPath}" -t ${duration} -vf "${filterGraph}" -c:v libx264 -preset ${preset} -crf ${crf} -pix_fmt yuv420p -c:a aac -b:a 128k -movflags +faststart "${finalClipPath}" -y`;
 
     try {
-        console.log(`[🔄] Clipping and reformatting to ${aspectRatio}... (Resolution: ${targetW}x${targetH})`);
-        // Add 2-minute timeout to prevent hanging worker if ffmpeg gets stuck
-        await execPromise(ffmpegCommand, { timeout: 120000 });
+        console.log(`[🔄] Clipping and reformatting to ${aspectRatio}... (Resolution: ${targetW}x${targetH}, CRF ${crf})`);
+        // Generous timeout so the better preset isn't killed mid-encode on weak CPUs.
+        await execPromise(ffmpegCommand, { timeout: 180000 });
 
         console.log(`[📤] Uploading clipped video to Cloudinary...`);
         const publicUrl = await uploadToCloudinary(finalClipPath, `omnicontent/clips/${outputFileName}`, true);

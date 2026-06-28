@@ -11,7 +11,10 @@ import {
   Film,
   Link2,
   Loader2,
+  Lock,
+  MessageSquareQuote,
   Scissors,
+  SlidersHorizontal,
   Sparkles,
   UploadCloud,
 } from "lucide-react";
@@ -35,6 +38,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileUpload } from "@/components/ui/file-upload";
+import { Textarea } from "@/components/ui/textarea";
+import { useSubscription } from "@/hooks/use-subscription";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -43,6 +48,7 @@ type SubmitState = "idle" | "submitting" | "error";
 export default function CreatePage() {
   const router = useRouter();
   const { getToken } = useAuth();
+  const { isProFeatureAvailable } = useSubscription();
 
   const [activeTab, setActiveTab] = React.useState<"url" | "upload">("url");
   const [url, setUrl] = React.useState("");
@@ -51,6 +57,8 @@ export default function CreatePage() {
   const [clipLength, setClipLength] = React.useState<number[]>([60]);
   const [enableCaptions, setEnableCaptions] = React.useState(true);
   const [captionStyle, setCaptionStyle] = React.useState("default");
+  const [voiceTemplate, setVoiceTemplate] = React.useState("auto");
+  const [customPrompt, setCustomPrompt] = React.useState("");
   const [timeframeStart, setTimeframeStart] = React.useState("");
   const [timeframeEnd, setTimeframeEnd] = React.useState("");
 
@@ -71,6 +79,8 @@ export default function CreatePage() {
     enableCaptions,
     timeframe: { start: timeframeStart, end: timeframeEnd },
     captionStyle,
+    voiceTemplate: voiceTemplate === "auto" ? "" : voiceTemplate,
+    customPrompt,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,6 +123,8 @@ export default function CreatePage() {
         formData.append("timeframeStart", opts.timeframe.start);
         formData.append("timeframeEnd", opts.timeframe.end);
         formData.append("captionStyle", opts.captionStyle);
+        formData.append("voiceTemplate", opts.voiceTemplate);
+        formData.append("customPrompt", opts.customPrompt);
         const res = await fetch(`${apiBase}/api/v1/content/atomize-file`, {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -368,7 +380,67 @@ export default function CreatePage() {
                   </div>
                 </div>
               </Panel>
-            </div>
+              {/* 03 · Creative direction (Pro) */}
+              <Panel
+                eyebrow="03 · Creative direction"
+                title="Shape the voice & angle"
+                icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+              >
+                <div className="relative">
+                  {!isProFeatureAvailable && (
+                    <button
+                      type="button"
+                      onClick={() => setUpgradeModalFeature("Creative direction")}
+                      className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/70 backdrop-blur-[2px]"
+                    >
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium shadow-sm">
+                        <Lock className="h-3.5 w-3.5" /> Pro feature — upgrade to unlock
+                      </span>
+                    </button>
+                  )}
+                  <div
+                    className={cn(
+                      "space-y-6",
+                      !isProFeatureAvailable && "pointer-events-none select-none opacity-50"
+                    )}
+                  >
+                    <div>
+                      <Label className="block text-[12px] font-mono uppercase tracking-[0.16em] text-muted-foreground mb-2">
+                        Tone template
+                      </Label>
+                      <Select value={voiceTemplate} onValueChange={setVoiceTemplate} disabled={!isProFeatureAvailable}>
+                        <SelectTrigger className="h-10 rounded-md text-[13px] border-border bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto · use my brand voice</SelectItem>
+                          <SelectItem value="punchy">Punchy & bold</SelectItem>
+                          <SelectItem value="analytical">Thoughtful & analytical</SelectItem>
+                          <SelectItem value="casual">Friendly & casual</SelectItem>
+                          <SelectItem value="authoritative">Authoritative expert</SelectItem>
+                          <SelectItem value="storytelling">Storytelling</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="flex items-center gap-1.5 text-[12px] font-mono uppercase tracking-[0.16em] text-muted-foreground mb-2">
+                        <MessageSquareQuote className="h-3.5 w-3.5" /> Custom prompt
+                        <span className="ml-1 normal-case tracking-normal text-muted-foreground/60">
+                          (optional)
+                        </span>
+                      </Label>
+                      <Textarea
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        disabled={!isProFeatureAvailable}
+                        maxLength={1000}
+                        placeholder="e.g. Emphasize the technical takeaways, add a contrarian angle, keep it founder-to-founder."
+                        className="min-h-[90px] rounded-md border-border bg-background text-[13px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Panel>            </div>
 
             {/* ── Summary column ──────────────────────── */}
             <aside className="lg:sticky lg:top-24 self-start">

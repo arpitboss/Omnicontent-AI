@@ -1,4 +1,7 @@
 // packages/backend/src/index.ts
+// Initialize Sentry before any other import so it can auto-instrument http/express/mongoose.
+import './instrument';
+import * as Sentry from '@sentry/node';
 import crypto from 'crypto';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -10,12 +13,20 @@ import connectDB from './config/db';
 import contentRoutes from './routes/contentRoutes';
 import publishRoutes from './routes/publishRoutes';
 import billingRoutes, { stripeWebhookHandler } from './routes/billingRoutes';
+import voiceRoutes from './routes/voiceRoutes';
 import { clerkMiddleware } from '@clerk/express';
+import { apiLimiter } from './middleware/rateLimit';
+import { startScheduler } from './utils/scheduler';
 
 dotenv.config();
 connectDB();
 
 const app = express();
+
+// Render/Vercel serve the app behind a reverse proxy. Trust the first proxy hop
+// so req.ip reflects the real client — required for correct rate-limit keying.
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
@@ -90,15 +101,24 @@ app.post('/api/internal/notify', express.json(), (req, res) => {
     res.sendStatus(200);
 });
 
-// API routes
-app.use('/api/v1/content', contentRoutes);
-app.use('/api/v1/publish', publishRoutes);
-app.use('/api/v1/billing', billingRoutes);
+// API routes (apiLimiter is a global safety net; expensive routes add stricter limits)
+app.use('/api/v1/content', apiLimiter, contentRoutes);
+app.use('/api/v1/publish', apiLimiter, publishRoutes);
+app.use('/api/v1/billing', apiLimiter, billingRoutes);
+app.use('/api/v1/voice', apiLimiter, voiceRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
     res.send('OmniContent AI Backend is running!');
 });
+
+// Sentry error handler must be registered after all routes but before any other
+// error middleware. Captures exceptions thrown in route handlers (no-op if Sentry
+// is not configured) and then lets Express continue its normal handling.
+Sentry.setupExpressErrorHandler(app);
+
+// Start the daily lifecycle-email scheduler (no-op unless RESEND_API_KEY is set).
+startScheduler();
 
 server.listen(PORT, () => {
     console.log(`Server with sockets is running on http://localhost:${PORT}`);

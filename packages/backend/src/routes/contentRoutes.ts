@@ -1,7 +1,6 @@
 // packages/backend/src/routes/contentRoutes.ts
 import { requireAuth } from '@clerk/express';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import amqplib from 'amqplib';
 import archiver from 'archiver';
 import express from 'express';
 import multer from 'multer';
@@ -15,7 +14,11 @@ import axios from 'axios';
 // Cloudinary is configured when this module loads via the import side-effect
 import '../utils/cloudinary';
 import Subscription from '../models/subscriptionModel';
+import VoiceProfile from '../models/voiceProfileModel';
 import { requirePlan, getSubscription } from '../middleware/requirePlan';
+import { aiLimiter } from '../middleware/rateLimit';
+import { publishJob } from '../utils/rabbitmq';
+import { track } from '../utils/analytics';
 
 require('dotenv').config();
 
@@ -88,23 +91,18 @@ const upload = multer({
     limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max
 });
 
-async function queueJob(payload: any) {
-    const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
-    const connection = await amqplib.connect(rabbitMqUrl);
-    const channel = await connection.createChannel();
-    const queue = 'content_jobs';
-    await channel.assertQueue(queue, { durable: true });
-    channel.sendToQueue(queue, Buffer.from(JSON.stringify(payload)));
-    await channel.close();
-    await connection.close();
+async function queueJob(payload: any, priority: boolean | null | undefined = false) {
+    // Pro jobs use the priority lane so they aren't stuck behind free jobs.
+    // Durable, publisher-confirmed publish over a shared connection (see utils/rabbitmq).
+    await publishJob(priority ? 'content_jobs_priority' : 'content_jobs', payload);
 }
 
 
 // The ClerkExpressRequireAuth middleware will ensure the user is logged in
 // and attach the user's auth info to req.auth
-router.post('/atomize', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/atomize', requireAuth(), aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
-        const { url, clipLength, enableCaptions, timeframe, captionStyle } = req.body;
+        const { url, clipLength, enableCaptions, timeframe, captionStyle, voiceTemplate, customPrompt } = req.body;
         const userId = req.auth?.userId;
         console.log("Received atomization request:", { url, clipLength, enableCaptions, timeframe });
 
@@ -165,12 +163,19 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
 
         const job = {
             url, userId, contentId: newContent._id,
-            options: { clipLength, enableCaptions, clipLimit, timeframe, captionStyle }
+            options: {
+                clipLength, enableCaptions, clipLimit, timeframe, captionStyle,
+                // Creative direction is a Pro feature — ignore it for non-Pro users.
+                voiceTemplate: isPro ? voiceTemplate : undefined,
+                customPrompt: isPro && typeof customPrompt === 'string' ? customPrompt.slice(0, 1000) : undefined,
+            }
         };
 
         console.log("Queueing job:", job);
 
-        await queueJob(job);
+        await queueJob(job, isPro);
+
+        track(userId, 'atomization_started', { source: 'url', clipLength, captionStyle });
 
         res.status(202).json({ message: 'Job accepted.', contentId: newContent._id });
     } catch (error) {
@@ -179,7 +184,7 @@ router.post('/atomize', requireAuth(), async (req: express.Request, res: express
     }
 });
 
-router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, res) => {
+router.post('/atomize-file', requireAuth(), aiLimiter, upload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
     }
@@ -194,7 +199,7 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
         return res.status(400).json({ message: 'File content does not match a recognized video format.' });
     }
 
-    const { clipLength, enableCaptions, timeframeStart, timeframeEnd, captionStyle } = req.body;
+    const { clipLength, enableCaptions, timeframeStart, timeframeEnd, captionStyle, voiceTemplate, customPrompt } = req.body;
     const userId = req.auth?.userId;
 
     // Subscription-based limits
@@ -256,11 +261,13 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
                 enableCaptions: enableCaptions === 'true',
                 clipLimit,
                 timeframe: { start: timeframeStart, end: timeframeEnd },
-                captionStyle
+                captionStyle,
+                voiceTemplate: isPro ? voiceTemplate : undefined,
+                customPrompt: isPro && typeof customPrompt === 'string' ? customPrompt.slice(0, 1000) : undefined,
             }
         };
 
-        await queueJob(job);
+        await queueJob(job, isPro);
 
         // Increment usage counter
         await Subscription.findOneAndUpdate(
@@ -268,6 +275,8 @@ router.post('/atomize-file', requireAuth(), upload.single('file'), async (req, r
             { $inc: { atomizationsUsed: 1 } },
             { upsert: true }
         );
+
+        track(userId, 'atomization_started', { source: 'file' });
 
         res.status(202).json({ message: 'File upload accepted.', contentId: newContent._id });
 
@@ -292,7 +301,7 @@ router.get('/', requireAuth(), async (req: express.Request, res: express.Respons
     }
 });
 
-router.post('/translate', requireAuth(), requirePlan('pro'), async (req, res) => {
+router.post('/translate', requireAuth(), aiLimiter, requirePlan('pro'), async (req, res) => {
     const { text, targetLanguage } = req.body;
     if (!text || !targetLanguage) {
         return res.status(400).json({ message: 'Text and target language are required.' });
@@ -343,43 +352,57 @@ router.get('/:contentId/export-all', requireAuth(), requirePlan('pro'), async (r
         
         if (content.generatedContent) {
             let articleMarkdown = content.generatedContent;
-            
-            // Regex to find all Markdown images: ![alt](url)
-            const imageRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g;
-            let match;
             let imageIndex = 1;
-            
-            // Collect all image matches first because we need to await the downloads
-            const imagesToDownload = [];
-            
-            while ((match = imageRegex.exec(content.generatedContent)) !== null) {
-                imagesToDownload.push({
-                    fullMatch: match[0],
-                    altText: match[1],
-                    imageUrl: match[2],
-                    filename: `image_${imageIndex}.jpg`,
-                    localPath: `./images/image_${imageIndex}.jpg`
-                });
+
+            // 1. Hero image — generated from the hero prompt (or title) via Pollinations and
+            //    rendered client-side in the app, so we must fetch it here to embed it in the zip.
+            const heroPrompt = content.heroImagePrompt || content.generatedTitle;
+            if (heroPrompt) {
+                try {
+                    const heroUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(heroPrompt)}?width=1280&height=720&model=flux&nologo=true`;
+                    const heroRes = await axios({ method: 'GET', url: heroUrl, responseType: 'arraybuffer', timeout: 20000 });
+                    archive.append(Buffer.from(heroRes.data), { name: 'images/hero.jpg' });
+                    articleMarkdown = `![${heroPrompt}](./images/hero.jpg)\n\n${articleMarkdown}`;
+                } catch (err) {
+                    console.error('[Export] Failed to fetch hero image:', err);
+                }
+            }
+
+            // 2. Inline base64 data-URI images (uploaded/generated in the editor) → write them
+            //    out as real files so the article .md isn't a wall of base64.
+            const base64Regex = /!\[([^\]]*)\]\(data:image\/(\w+);base64,([^)]+)\)/g;
+            let b64Match;
+            const base64Images: { fullMatch: string; alt: string; ext: string; data: string }[] = [];
+            while ((b64Match = base64Regex.exec(articleMarkdown)) !== null) {
+                base64Images.push({ fullMatch: b64Match[0], alt: b64Match[1], ext: b64Match[2], data: b64Match[3] });
+            }
+            for (const img of base64Images) {
+                const ext = img.ext === 'jpeg' ? 'jpg' : img.ext;
+                const filename = `image_${imageIndex}.${ext}`;
+                try {
+                    archive.append(Buffer.from(img.data, 'base64'), { name: `images/${filename}` });
+                    articleMarkdown = articleMarkdown.replace(img.fullMatch, `![${img.alt}](./images/${filename})`);
+                    imageIndex++;
+                } catch (err) {
+                    console.error('[Export] Failed to decode embedded image:', err);
+                }
+            }
+
+            // 3. Remote http(s) images → download into the zip.
+            const imageRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g;
+            const imagesToDownload: { fullMatch: string; altText: string; imageUrl: string; filename: string }[] = [];
+            let match;
+            while ((match = imageRegex.exec(articleMarkdown)) !== null) {
+                imagesToDownload.push({ fullMatch: match[0], altText: match[1], imageUrl: match[2], filename: `image_${imageIndex}.jpg` });
                 imageIndex++;
             }
-            
-            // Download images and rewrite markdown
             for (const img of imagesToDownload) {
                 try {
-                    const response = await axios({
-                        method: 'GET',
-                        url: img.imageUrl,
-                        responseType: 'stream',
-                        timeout: 10000
-                    });
-                    
+                    const response = await axios({ method: 'GET', url: img.imageUrl, responseType: 'stream', timeout: 15000 });
                     archive.append(response.data, { name: `images/${img.filename}` });
-                    
-                    // Replace the remote URL with local path in the markdown
-                    articleMarkdown = articleMarkdown.replace(img.fullMatch, `![${img.altText}](${img.localPath})`);
+                    articleMarkdown = articleMarkdown.replace(img.fullMatch, `![${img.altText}](./images/${img.filename})`);
                 } catch (err) {
                     console.error(`[Export] Failed to download image from URL: ${img.imageUrl}`, err);
-                    // If it fails to download, we just leave the original remote URL in the markdown
                 }
             }
 
@@ -423,7 +446,7 @@ router.get('/:contentId/export-all', requireAuth(), requirePlan('pro'), async (r
     }
 });
 
-router.post('/:contentId/clips/:clipId/reformat', requireAuth(), requirePlan('pro'), async (req, res) => {
+router.post('/:contentId/clips/:clipId/reformat', requireAuth(), aiLimiter, requirePlan('pro'), async (req, res) => {
     const { contentId, clipId } = req.params;
     const { aspectRatio } = req.body;
     const userId = req.auth?.userId;
@@ -446,12 +469,7 @@ router.post('/:contentId/clips/:clipId/reformat', requireAuth(), requirePlan('pr
             userId
         };
 
-        const rabbitMqUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
-        const connection = await amqplib.connect(rabbitMqUrl);
-        const channel = await connection.createChannel();
-        const queue = 'reformatting_jobs';
-        await channel.assertQueue(queue, { durable: true });
-        channel.sendToQueue(queue, Buffer.from(JSON.stringify(job)));
+        await publishJob('reformatting_jobs', job);
 
         res.status(202).json({ message: 'Reformatting job accepted.', reformatJobId });
     } catch (error) {
@@ -493,7 +511,7 @@ function extractFirstJsonObject(text: string): string {
 }
 
 // --- Helper to regenerate content from video transcript using Gemini ---
-async function regenerateContentFromTranscript(transcriptSegments: any[]): Promise<{
+async function regenerateContentFromTranscript(transcriptSegments: any[], voiceProfile?: { samples?: string[]; description?: string }): Promise<{
     summary: string;
     generatedTitle: string;
     generatedContent: string;
@@ -512,8 +530,17 @@ async function regenerateContentFromTranscript(transcriptSegments: any[]): Promi
 
     const transcriptText = transcriptSegments.map(t => `${t.timestamp}: ${t.text}`).join("\n");
 
+    // Brand voice: match the creator's past posts + style notes if configured.
+    let voiceGuide = "";
+    if (voiceProfile && ((Array.isArray(voiceProfile.samples) && voiceProfile.samples.length > 0) || voiceProfile.description)) {
+        const samples = (voiceProfile.samples || [])
+            .map((s: string, i: number) => `--- Example ${i + 1} ---\n${s}`)
+            .join("\n\n");
+        voiceGuide = `\n    CRITICAL — Write in the creator's own voice (tone, sentence length, vocabulary, emoji habits). Do not produce generic AI copy.${voiceProfile.description ? `\n    Style notes: ${voiceProfile.description}` : ""}${samples ? `\n    Examples of their past posts:\n${samples}` : ""}\n`;
+    }
+
     const prompt = `
-    You are an expert, A-list content strategist. Based on the following video transcript segments, generate high-quality marketing assets:
+    You are a world-class ghostwriter for B2B founders and operators. ${voiceGuide}Based on the following video transcript segments, generate high-quality marketing assets:
     1. "summary": A concise one-paragraph summary.
     2. "generatedTitle": A catchy, SEO-optimized title for a blog article.
     3. "generatedContent": A beautifully structured blog post in Markdown format. Use H2 (##) headings, bullet points, and place visual suggestions exactly in this format: "[Image: Stock photo description suitable for stock search]".
@@ -556,7 +583,7 @@ async function regenerateContentFromTranscript(transcriptSegments: any[]): Promi
 }
 
 // --- Revert content to original draft / Backup restore ---
-router.post('/:contentId/revert', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/:contentId/revert', requireAuth(), aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
@@ -589,7 +616,8 @@ router.post('/:contentId/revert', requireAuth(), async (req: express.Request, re
         }
 
         console.log(`[🔄] No DB backups found for content ${contentId}. Triggering dynamic Gemini transcript recovery...`);
-        const restored = await regenerateContentFromTranscript(content.transcript);
+        const voiceProfile = await VoiceProfile.findOne({ userId });
+        const restored = await regenerateContentFromTranscript(content.transcript, voiceProfile?.enabled ? { samples: voiceProfile.samples, description: voiceProfile.description } : undefined);
 
         content.generatedTitle = restored.generatedTitle;
         content.originalTitle = restored.generatedTitle;
@@ -612,7 +640,7 @@ router.post('/:contentId/revert', requireAuth(), async (req: express.Request, re
 });
 
 // --- Explicitly force regeneration of all texts from the video transcript ---
-router.post('/:contentId/regenerate', requireAuth(), async (req: express.Request, res: express.Response) => {
+router.post('/:contentId/regenerate', requireAuth(), aiLimiter, async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
@@ -631,7 +659,8 @@ router.post('/:contentId/regenerate', requireAuth(), async (req: express.Request
         }
 
         console.log(`[🔄] Forcing complete Gemini regeneration for content ${contentId}...`);
-        const regenerated = await regenerateContentFromTranscript(content.transcript);
+        const voiceProfile = await VoiceProfile.findOne({ userId });
+        const regenerated = await regenerateContentFromTranscript(content.transcript, voiceProfile?.enabled ? { samples: voiceProfile.samples, description: voiceProfile.description } : undefined);
 
         content.generatedTitle = regenerated.generatedTitle;
         content.originalTitle = regenerated.generatedTitle;

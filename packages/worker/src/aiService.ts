@@ -18,6 +18,7 @@ export interface AtomizationResult {
     viralMoments: {
         title: string;
         summary: string;
+        hookVariants: string[];
         startTime: number;
         endTime: number;
         wordEvents: { word: string; start: number; end: number }[];
@@ -103,6 +104,11 @@ const ATOMIZATION_SCHEMA = {
                 properties: {
                     title: { type: Type.STRING },
                     summary: { type: Type.STRING },
+                    hookVariants: {
+                        type: Type.ARRAY,
+                        description: "Exactly 3 alternative scroll-stopping opening hooks/captions for this clip.",
+                        items: { type: Type.STRING },
+                    },
                     startTime: { type: Type.NUMBER },
                     endTime: { type: Type.NUMBER },
                     wordEvents: {
@@ -118,7 +124,7 @@ const ATOMIZATION_SCHEMA = {
                         },
                     },
                 },
-                required: ["title", "summary", "startTime", "endTime", "wordEvents"],
+                required: ["title", "summary", "hookVariants", "startTime", "endTime", "wordEvents"],
             },
         },
     },
@@ -174,10 +180,43 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         timeframeConstraint = `CRITICAL: You must only analyze the video content between the timestamps ${options.timeframe.start} and ${options.timeframe.end}. All generated clips and content must come from this specific segment.`;
     }
 
+    // Brand voice: inject the creator's past posts + style notes so output sounds like them.
+    let voiceGuide = "";
+    const vp = options.voiceProfile;
+    if (vp && ((Array.isArray(vp.samples) && vp.samples.length > 0) || vp.description)) {
+        const samples = (vp.samples || [])
+            .map((s: string, i: number) => `--- Example ${i + 1} ---\n${s}`)
+            .join('\n\n');
+        voiceGuide = `
+        CRITICAL — WRITE IN THE CREATOR'S OWN VOICE:
+        The blog post, LinkedIn post, and Twitter thread MUST sound like this specific creator wrote them — match their tone, sentence length, rhythm, vocabulary, punctuation, and emoji habits. Do NOT produce generic, polished "AI" copy. Favor their phrasing over yours.${vp.description ? `\n        Style notes from the creator: ${vp.description}` : ''}${samples ? `\n        Real examples of the creator's past posts to emulate:\n${samples}` : ''}
+        `;
+    }
+
+    // Creative direction (Pro): an optional tone template + a freeform custom instruction.
+    const TONE_TEMPLATES: Record<string, string> = {
+        punchy: "Adopt a punchy, bold, high-energy tone — short sentences, strong verbs, confident claims.",
+        analytical: "Adopt a thoughtful, analytical tone — precise, structured, evidence-led, no hype.",
+        casual: "Adopt a friendly, casual, conversational tone, like talking to a peer.",
+        authoritative: "Adopt an authoritative expert tone — credible, direct, and clear.",
+        storytelling: "Use a narrative, storytelling approach with a clear arc and vivid, concrete detail.",
+    };
+    const toneInstruction = options.voiceTemplate ? TONE_TEMPLATES[options.voiceTemplate] : "";
+    let creativeDirection = "";
+    if (toneInstruction || options.customPrompt) {
+        creativeDirection = `
+        CREATIVE DIRECTION:${toneInstruction ? `\n        - ${toneInstruction}` : ''}${options.customPrompt ? `\n        - Specific instruction from the user (follow it closely): "${String(options.customPrompt).slice(0, 1000)}"` : ''}
+        `;
+    }
+
     const prompt = `
-        You are an A-list content strategist for top creators and brands. Your work is viral, professional, and has immense value. Analyze the provided video and deconstruct it into the following assets.
+        You are a world-class ghostwriter for B2B founders and operators. You turn long-form video into sharp, credible, non-fluffy content that builds authority and pipeline — never generic or clickbaity. Analyze the provided video and deconstruct it into the following assets.
 
         ${timeframeConstraint}
+
+        ${voiceGuide}
+
+        ${creativeDirection}
 
         Generate the following:
         1.  "summary": A concise, one-paragraph summary of the entire video.
@@ -189,7 +228,11 @@ export const atomizeVideoContent = async (source: string, options: any): Promise
         3.  "transcript": A structured transcript as an array of objects. CRITICAL: Combine multiple sentences into a single large text block (approx 30-60 seconds of speech) per object to keep the array small. Each object must have a "timestamp" (string, e.g., "01:23") and the corresponding "text" (string).
         4.  "linkedinPost": A professional post for LinkedIn. Start with a strong hook, use bullet points with professional emojis, end with a question, and finish with 4-5 relevant hashtags.
         5.  "twitterThread": A viral-style Twitter thread (an array of strings). Start with a curiosity-driving hook, use emojis, keep each tweet under 280 characters, number them (1/, 2/, 3/), and end with a call-to-action and hashtags.
-        6.  "viralMoments": An array of up to ${options.clipLimit} engaging video clips. Each clip must be under ${options.clipLength} seconds long. For each clip, provide a "title", "summary", "startTime" (number, in seconds), "endTime" (number, in seconds), and "wordEvents" with word-level timestamps for captions. Each wordEvent has "word" (string), "start" (number), and "end" (number).
+        6.  "viralMoments": An array of up to ${options.clipLimit} short-form clips engineered to perform on Instagram Reels, TikTok, and YouTube Shorts. Each clip MUST:
+            - Be a self-contained moment that fully makes sense on its own, with no missing setup or context.
+            - Open on a strong hook in the first 1-2 seconds (a bold claim, a question, or a surprising line) to stop the scroll.
+            - Be under ${options.clipLength} seconds long, starting and ending on natural sentence boundaries — never mid-sentence or mid-word.
+            Provide "title", "summary", "hookVariants", "startTime" (number, seconds), "endTime" (number, seconds), and "wordEvents". "hookVariants" is an array of exactly 3 alternative scroll-stopping opening lines/captions (each under 12 words) the creator could post with this clip — punchy, curiosity-driving, and distinct from each other. CRITICAL for caption sync: each wordEvent's "start" and "end" MUST be the real spoken time of that word in the source video (seconds), accurate to ~0.2s, and MUST fall between this clip's startTime and endTime. Each wordEvent has "word" (string), "start" (number), and "end" (number).
     `;
 
     const myfile = await uploadAndWait(source, "video/mp4");

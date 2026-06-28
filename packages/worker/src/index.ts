@@ -1,4 +1,7 @@
 // packages/worker/src/index.ts
+// Initialize Sentry before any other import so it can auto-instrument amqplib/mongoose.
+import './instrument';
+import * as Sentry from '@sentry/node';
 import clerkClient from '@clerk/clerk-sdk-node';
 import amqplib from 'amqplib';
 import { exec, execFile } from 'child_process';
@@ -11,8 +14,12 @@ import { URL } from 'url';
 import { promisify } from 'util';
 import { atomizeVideoContent } from './aiService';
 import Content from './models/contentModel';
+import VoiceProfile from './models/voiceProfileModel';
 import { reformatVideoAndAddCaptions } from './services/videoService';
 import { parseTimestampToSeconds } from './utils/time';
+import { publish, retryOrDeadLetter } from './utils/queue';
+import { track } from './utils/analytics';
+import { sendJobCompleteEmail, sendJobFailedEmail } from './utils/email';
 
 dotenv.config();
 const execPromise = promisify(exec);
@@ -152,18 +159,20 @@ const startWorker = async () => {
         connection.on("error", (err) => console.error("RabbitMQ Connection Error:", err));
         connection.on("close", () => console.error("RabbitMQ Connection Closed"));
 
-        const channel = await connection.createChannel();
+        // Confirm channel so publishes (video jobs, retries, dead-letters) are broker-acknowledged.
+        const channel = await connection.createConfirmChannel();
         const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
-        // WORKER 1: Fast Text & Caching (Listens to 'content_jobs')
+        // WORKER 1: Fast Text & Caching ('content_jobs' + the Pro 'content_jobs_priority' lane)
         const textQueue = 'content_jobs';
+        const priorityQueue = 'content_jobs_priority';
         await channel.assertQueue(textQueue, { durable: true });
+        await channel.assertQueue(priorityQueue, { durable: true });
 
-        channel.consume(textQueue, async (msg) => {
+        const handleContentMessage = async (msg: any) => {
             if (msg) {
-                channel.ack(msg);
                 const job = JSON.parse(msg.content.toString());
-                const { contentId, url, localSourcePath, options } = job;
+                const { contentId, url, localSourcePath, options, userId } = job;
                 let finalSourcePath = localSourcePath;
 
                 try {
@@ -247,6 +256,22 @@ const startWorker = async () => {
 
                     await Content.findByIdAndUpdate(contentId, { localSourcePath: finalSourcePath });
 
+                    // Inject the user's brand voice (if configured) so the AI writes like them.
+                    if (userId) {
+                        try {
+                            const voiceProfile = await VoiceProfile.findOne({ userId });
+                            if (voiceProfile?.enabled && ((voiceProfile.samples && voiceProfile.samples.length > 0) || voiceProfile.description)) {
+                                options.voiceProfile = {
+                                    samples: voiceProfile.samples,
+                                    description: voiceProfile.description,
+                                };
+                                console.log(`[🎙️] Applied brand voice for user ${userId} (${voiceProfile.samples?.length || 0} samples).`);
+                            }
+                        } catch (voiceErr) {
+                            console.error('[🎙️] Failed to load brand voice profile:', voiceErr);
+                        }
+                    }
+
                     const analysis = await atomizeVideoContent(finalSourcePath, options);
 
                     // Strictly enforce clipLimit (AI might hallucinate more clips than allowed)
@@ -276,6 +301,7 @@ const startWorker = async () => {
                         return {
                             title: moment.title,
                             summary: moment.summary,
+                            hookVariants: Array.isArray(moment.hookVariants) ? moment.hookVariants.slice(0, 3) : [],
                             wordEvents: wordEvents,
                             status: 'PENDING',
                             startTime: startTime,
@@ -304,19 +330,31 @@ const startWorker = async () => {
                     });
 
                     const videoQueue = 'video_processing_jobs';
-                    await channel.assertQueue(videoQueue, { durable: true });
                     const content = await Content.findById(contentId);
-                    content?.clips.forEach(clip => {
+                    for (const clip of content?.clips ?? []) {
                         const videoJob = { contentId, clipId: clip._id, options };
-                        channel.sendToQueue(videoQueue, Buffer.from(JSON.stringify(videoJob)));
-                    });
+                        await publish(channel, videoQueue, videoJob);
+                    }
                     console.log(`[✅] Text generation for ${contentId} complete. Queued ${content?.clips.length} video jobs.`);
 
+                    // Success — acknowledge so the broker drops the source message.
+                    channel.ack(msg);
                 } catch (err) {
-                    await Content.findByIdAndUpdate(contentId, { status: 'FAILED', errorMessage: (err as Error).message });
+                    Sentry.captureException(err, { tags: { queue: 'content_jobs' }, extra: { contentId } });
+                    const { deadLettered } = await retryOrDeadLetter(channel, msg, textQueue, job, err);
+                    if (deadLettered) {
+                        await Content.findByIdAndUpdate(contentId, { status: 'FAILED', errorMessage: (err as Error).message });
+                    }
+                    // Ack the original; a retry copy (or dead-letter copy) has been published.
+                    channel.ack(msg);
                 }
             }
-        });
+        };
+
+        // Pro jobs flow through the priority lane; both lanes share the same handler so a
+        // flood of free jobs never blocks paid ones.
+        channel.consume(priorityQueue, handleContentMessage);
+        channel.consume(textQueue, handleContentMessage);
 
         // WORKER 2: Slow Video Clip Generation (Listens to 'video_processing_jobs')
         const videoQueue = 'video_processing_jobs';
@@ -360,6 +398,7 @@ const startWorker = async () => {
                     );
                     console.log(`[📹] Clip ${clipId} finished processing.`);
                 } catch (err) {
+                    Sentry.captureException(err, { tags: { queue: 'video_processing_jobs' }, extra: { contentId, clipId } });
                     await Content.updateOne({ "clips._id": clipId }, { $set: { "clips.$.status": 'FAILED' } });
                     console.error(`Failed to process video for clip ${clipId}:`, err);
                 } finally {
@@ -374,9 +413,18 @@ const startWorker = async () => {
                         const allFailed = updatedContent?.clips.every(c => c.status === 'FAILED');
                         if (allFailed) {
                             await Content.findByIdAndUpdate(contentId, { status: 'FAILED', errorMessage: 'All video clips failed to generate.' });
+                            track(updatedContent?.userId, 'atomization_failed', { reason: 'all_clips_failed' });
+                            if (updatedContent?.userId) await sendJobFailedEmail(updatedContent.userId);
                             console.log(`[❌] All clips for content ${contentId} failed. Job marked as FAILED.`);
                         } else {
                             await Content.findByIdAndUpdate(contentId, { status: 'COMPLETE' });
+                            track(updatedContent?.userId, 'atomization_completed', { clips: updatedContent?.clips.length ?? 0 });
+                            if (updatedContent?.userId) {
+                                await sendJobCompleteEmail(updatedContent.userId, {
+                                    title: updatedContent.generatedTitle || 'your project',
+                                    clips: updatedContent.clips.length,
+                                });
+                            }
                             console.log(`[🎉] All clips for content ${contentId} are processed. Job is COMPLETE.`);
                         }
                     }
@@ -392,7 +440,6 @@ const startWorker = async () => {
         
         channel.consume(reformatQueue, async (msg) => {
             if (msg) {
-                channel.ack(msg);
                 const job = JSON.parse(msg.content.toString());
                 const { contentId, clipId, reformatJobId, aspectRatio, userId } = job;
                 // const outputFileName = `${reformatJobId}_${aspectRatio.replace(':', 'x')}`;
@@ -426,14 +473,24 @@ const startWorker = async () => {
                     await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'COMPLETE', "reformattedClips.$.url": downloadUrl } });
 
                     await notifyBackend(BACKEND_URL, { userId, downloadUrl, reformatJobId });
+
+                    // Success — acknowledge so the broker drops the source message.
+                    channel.ack(msg);
                 } catch (err) {
-                    await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'FAILED' } });
-                    await notifyBackend(BACKEND_URL, { userId, reformatJobId, error: 'Failed to generate video.' });
+                    Sentry.captureException(err, { tags: { queue: 'reformatting_jobs' }, extra: { contentId, clipId, reformatJobId, userId } });
+                    const { deadLettered } = await retryOrDeadLetter(channel, msg, reformatQueue, job, err);
+                    if (deadLettered) {
+                        await Content.updateOne({ _id: contentId, "reformattedClips._id": reformatJobId }, { $set: { "reformattedClips.$.status": 'FAILED' } });
+                        await notifyBackend(BACKEND_URL, { userId, reformatJobId, error: 'Failed to generate video.' });
+                    }
                     console.error(`Reformatting job ${reformatJobId} failed:`, err);
+                    // Ack the original; a retry copy (or dead-letter copy) has been published.
+                    channel.ack(msg);
                 }
             }
         });
     } catch (error) {
+        Sentry.captureException(error, { tags: { phase: 'startup' } });
         console.error('Failed to start worker:', error);
     }
 };

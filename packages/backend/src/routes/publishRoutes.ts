@@ -5,6 +5,8 @@ import express from 'express';
 import SocialAccount from '../models/socialAccountModel';
 import Content from '../models/contentModel';
 import { requirePlan } from '../middleware/requirePlan';
+import { publishLimiter } from '../middleware/rateLimit';
+import { track } from '../utils/analytics';
 
 require('dotenv').config();
 
@@ -370,7 +372,7 @@ router.delete('/disconnect/:platform', requireAuth(), async (req: express.Reques
 // ═══════════════════ DIRECT PUBLISH ENDPOINTS ═══════════════════
 
 // ─── Publish to LinkedIn ───
-router.post('/linkedin/:contentId', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
+router.post('/linkedin/:contentId', requireAuth(), publishLimiter, requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
@@ -483,6 +485,8 @@ router.post('/linkedin/:contentId', requireAuth(), requirePlan('pro'), async (re
         });
         await content.save();
 
+        track(userId, 'content_published', { platform: 'linkedin' });
+
         console.log(`[✅] Published to LinkedIn: ${postUrl || contentId}`);
         res.json({ message: 'Published to LinkedIn!', postUrl });
     } catch (error: any) {
@@ -492,7 +496,7 @@ router.post('/linkedin/:contentId', requireAuth(), requirePlan('pro'), async (re
 });
 
 // ─── Publish to YouTube Shorts ───
-router.post('/youtube/:contentId/:clipId', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
+router.post('/youtube/:contentId/:clipId', requireAuth(), publishLimiter, requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId, clipId } = req.params;
         const userId = req.auth?.userId;
@@ -585,6 +589,8 @@ router.post('/youtube/:contentId/:clipId', requireAuth(), requirePlan('pro'), as
         (content as any).publishHistory.push({ platform: 'youtube', status: 'SUCCESS', postUrl });
         await content.save();
 
+        track(userId, 'content_published', { platform: 'youtube' });
+
         console.log(`[✅] Published YouTube Short: ${postUrl}`);
         res.json({ message: 'Uploaded to YouTube Shorts!', postUrl, videoId });
     } catch (error: any) {
@@ -596,7 +602,7 @@ router.post('/youtube/:contentId/:clipId', requireAuth(), requirePlan('pro'), as
 
 
 // ─── Publish to Twitter/X (via GetXAPI) ───
-router.post('/twitter/:contentId', requireAuth(), requirePlan('pro'), async (req: express.Request, res: express.Response) => {
+router.post('/twitter/:contentId', requireAuth(), publishLimiter, requirePlan('pro'), async (req: express.Request, res: express.Response) => {
     try {
         const { contentId } = req.params;
         const userId = req.auth?.userId;
@@ -685,6 +691,8 @@ router.post('/twitter/:contentId', requireAuth(), requirePlan('pro'), async (req
 
         (content as any).publishHistory.push({ platform: 'twitter', status: 'SUCCESS', postUrl });
         await content.save();
+
+        track(userId, 'content_published', { platform: 'twitter' });
 
         console.log(`[✅] Published Twitter thread: ${postUrl}`);
         res.json({ message: `Published ${tweetThread.length}-tweet thread to X!`, postUrl });

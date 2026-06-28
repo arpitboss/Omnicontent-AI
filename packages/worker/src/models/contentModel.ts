@@ -33,6 +33,7 @@ const clipSchema = new mongoose.Schema({
     },
     startTime: { type: Number, required: true },
     endTime: { type: Number, required: true },
+    hookVariants: { type: [String], default: [] },
 });
 
 const publishRecordSchema = new mongoose.Schema({
